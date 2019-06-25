@@ -137,7 +137,7 @@ export interface Host {
     ): Promise<void>
 }
 
-const key = 'holoflowskitrpc'
+const key = 'holoflowsjsonrpc'
 class MessageCenter {
     constructor() {
         document.addEventListener(key, e => {
