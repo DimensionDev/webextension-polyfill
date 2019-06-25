@@ -61,8 +61,9 @@ export function BrowserFactory(
                         return [null]
                     },
                     returns(rtn, [key]): object {
-                        if (typeof key === 'object' && key !== null) {
-                            return { ...key, rtn }
+                        if (Array.isArray(key)) return rtn
+                        else if (typeof key === 'object' && key !== null) {
+                            return { ...key, ...rtn }
                         }
                         return rtn
                     },
