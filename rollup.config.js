@@ -6,8 +6,7 @@ const config = {
     input: './src/index.ts',
     output: {
         file: './dist/out.js',
-        format: 'umd',
-        name: 'HoloflowsKit',
+        format: 'iife',
     },
     plugins: [
         nodeResolve({

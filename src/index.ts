@@ -28,5 +28,5 @@ class WebExtensionEnvironment {
 }
 Object.setPrototypeOf(WebExtensionEnvironment.prototype, Realm.prototype)
 
-const extension = new WebExtensionEnvironment('$ExtensionUUID', JSON.parse('$ExtensionManifest'))
+const extension = new WebExtensionEnvironment('$ExtensionUUID', JSON.parse('{}'))
 Object.assign(window, { Realm, extension })
