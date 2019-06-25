@@ -34,7 +34,7 @@ export function BrowserFactory(
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {
                 PartialImplemented(details, 'code', 'file', 'runAt')
-                await Host['browser.tabs.executeScript'](extensionID, tabID || -1, details)
+                await Host['browser.tabs.executeScript'](extensionID, tabID === undefined ? -1 : tabID, details)
                 return []
             },
             create: binding(extensionID, 'browser.tabs.create')(),
@@ -109,8 +109,8 @@ type HeadlessParameters<T extends (...args: any) => any> = T extends (extensionI
  *
  * If you are writing options, make sure you add your function to `BrowserReference` to get type tips.
  *
- * @param extensionID The extension ID
- * @param key The API name in the type of `Host` AND `BrowserReference`
+ * @param extensionID - The extension ID
+ * @param key - The API name in the type of `Host` AND `BrowserReference`
  */
 function binding<
     /** Name of the API in the RPC binding */
