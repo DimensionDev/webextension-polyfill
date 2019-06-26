@@ -1,4 +1,4 @@
-import { Host } from './RPC'
+import { Host } from '../RPC'
 /**
  * Create a new `browser` object.
  * @param extensionID - Extension ID

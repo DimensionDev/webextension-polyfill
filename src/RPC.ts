@@ -10,6 +10,7 @@ export interface Host {
      * @param type MINE/type "text/html"
      */
     'URL.createObjectURL'(extensionID: string, uuid: string, blob: string, mineType: string): Promise<void>
+    'URL.revokeObjectURL'(extensionID: string, uuid: string): Promise<void>
     /**
      * Open a dialog, share the file to somewhere else.
      * @param extensionID
@@ -25,10 +26,9 @@ export interface Host {
     ): Promise<void>
     /**
      * @host
-     * @param toExtensionID Send this message to
      * @param tab The committed tab info
      */
-    'browser.webNavigation.onCommitted'(toExtensionID: string, tab: { tabId: number; url: string }): Promise<void>
+    'browser.webNavigation.onCommitted'(tab: { tabId: number; url: string }): Promise<void>
     /**
      *
      * @param extensionID
@@ -138,13 +138,12 @@ export interface Host {
 }
 
 const key = 'holoflowsjsonrpc'
-class MessageCenter {
+const isDebug = location.href === 'about.blank'
+class iOSWebkitChannel {
     constructor() {
         document.addEventListener(key, e => {
             const detail = (e as CustomEvent<any>).detail
-            if (location.href === 'about:blank') {
-                console.log('receive', detail)
-            }
+            if (isDebug) console.log('receive', detail)
             for (const f of this.listener) {
                 try {
                     f(detail)
@@ -157,10 +156,10 @@ class MessageCenter {
         this.listener.push(cb)
     }
     send(_: string, data: any): void {
-        if (location.href === 'about:blank') {
+        if (isDebug) {
             console.log('send', data)
             Object.assign(window, {
-                response: (response: any) => {
+                response: (response: any) =>
                     document.dispatchEvent(
                         new CustomEvent<any>(key, {
                             detail: {
@@ -169,8 +168,7 @@ class MessageCenter {
                                 result: response,
                             },
                         }),
-                    )
-                },
+                    ),
             })
         }
         if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[key])
@@ -178,12 +176,17 @@ class MessageCenter {
     }
 }
 export const Host = AsyncCall<Host>(
-    {},
+    {
+        'browser.webNavigation.onCommitted': async (
+            ...args: Parameters<Host['browser.webNavigation.onCommitted']>
+        ) => {},
+        async onMessage(...args: Parameters<Host['onMessage']>) {},
+    },
     {
         dontThrowOnNotImplemented: false,
         key: '',
         strictJSONRPC: true,
         writeToConsole: true,
-        MessageCenter,
+        MessageCenter: iOSWebkitChannel,
     },
 )
