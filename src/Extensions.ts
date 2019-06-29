@@ -14,6 +14,12 @@ export function registerWebExtension(
     manifest: Manifest,
     content_scripts: Record<string, string> = {},
 ) {
+    console.debug(
+        `[WebExtension] Loading extension ${manifest.name}(${extensionID}) with manifest`,
+        manifest,
+        `and preloaded resource`,
+        content_scripts,
+    )
     try {
         for (const [index, content] of (manifest.content_scripts || []).entries()) {
             warningNotImplementedItem(content, index)
@@ -27,7 +33,10 @@ export function registerWebExtension(
                     content.match_about_blank,
                 )
             ) {
+                console.debug(`[WebExtension] Loading content script for`, content)
                 loadContentScript(extensionID, manifest, content, content_scripts)
+            } else {
+                console.debug(`[WebExtension] URL mismatched. Skip content script for, `, content)
             }
         }
     } catch (e) {
@@ -50,9 +59,13 @@ function loadContentScript(
         registeredWebExtension.set(extensionID, ext)
     }
     const { environment } = registeredWebExtension.get(extensionID)!
-    console.log(environment)
+    Object.assign(window, { environment })
     for (const path of content.js || []) {
-        environment.realm.evaluate(content_scripts[path])
+        if (content_scripts[path]) {
+            environment.evaluate(content_scripts[path])
+        } else {
+            console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)
+        }
     }
 }
 

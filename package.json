@@ -6,19 +6,21 @@
   "license": "MIT",
   "dependencies": {
     "@holoflows/kit": "git://github.com/DimensionDev/Holoflows-Kit.git",
-    "realms-shim": "git://github.com/Agoric/realms-shim",
+    "realms-shim": "git://github.com/DimensionDev/realms-shim.git",
     "web-ext-types": "^3.1.0"
   },
   "devDependencies": {
+    "react-devtools": "^3.6.1",
     "rollup": "^1.16.2",
     "rollup-plugin-commonjs": "^10.0.0",
     "rollup-plugin-node-resolve": "^5.0.4",
+    "rollup-plugin-string": "^3.0.0",
     "rollup-plugin-typescript2": "^0.21.2",
     "typescript": "^3.5.2"
   },
   "scripts": {
     "start": "rollup -c -w",
     "build": "rollup -c",
-    "postinstall": "cd node_modules; cd @holoflows/kit; yarn; yarn build; cd ../../realms-shim; yarn; yarn shim:build:dev"
+    "postinstall": "cd node_modules; cd @holoflows/kit; yarn; yarn build; cd ../../realms-shim; npm install; npm run shim:build:dev"
   }
 }

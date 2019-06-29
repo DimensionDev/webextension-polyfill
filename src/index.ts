@@ -1,29 +1,11 @@
 import { registerWebExtension } from './Extensions'
+import Manifest from './extension/manifest.json'
+// @ts-ignore
+import ContentScript from './extension/js/contentscript.js'
+// @ts-ignore
+import ContentScriptMap from './extension/js/contentscript.js.map'
 
-registerWebExtension(
-    'eofkdgkhfoebecmamljfaepckoecjhib',
-    {
-        name: 'My Extension',
-        version: '1.0',
-        manifest_version: 2,
-        content_scripts: [
-            {
-                matches: ['<all_urls>'],
-                js: ['/content-script.js'],
-                match_about_blank: true,
-            },
-        ],
-    },
-    {
-        '/content-script.js': `
-console.log('Hello world from WebExtension environment!')
-const hi = document.createElement('div')
-hi.innerHTML = 'Ahhhhhhhhhh'
-document.body.appendChild(hi)
-console.log('here is my manifest', browser.runtime.getManifest())
-window.hello = 'hi main frame'
-`,
-    },
-)
-console.log((window as any).browser, '<- No browser in the global')
-console.log((window as any).hello, '<- No hello in the main')
+const contentScripts = {
+    'js/contentscript.js': ContentScript + '\n//# sourceMappingURL=data:application/json,' + ContentScriptMap,
+}
+registerWebExtension('eofkdgkhfoebecmamljfaepckoecjhib', JSON.parse(Manifest as any), contentScripts)

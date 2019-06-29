@@ -30,6 +30,8 @@ export function BrowserFactory(
             getManifest() {
                 return JSON.parse(JSON.stringify(manifest))
             },
+            onMessage: NotImplementedProxy<typeof browser.runtime.onMessage>({
+            })
         }),
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {

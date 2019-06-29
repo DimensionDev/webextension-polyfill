@@ -26,32 +26,48 @@ const staticGlobal = (() => {
             if (set) desc.set = (val: any) => set.apply(realWindow, val)
 
             if (value && typeof value === 'function') {
-                desc.value = function() {
+                desc.value = function(...args: any[]) {
+                    if (new.target) return new value(...args)
                     // ? Only native objects will have access to realWindow
-                    return value.call(realWindow, arguments)
+                    const symb = Symbol('Binding this')
+                    realWindow[symb as any] = value
+                    try {
+                        const result = (realWindow as any)[symb](...args)
+                        return result
+                    } finally {
+                        delete (realWindow as any)[symb]
+                    }
                 }
             }
         }
-        debugger
         return webAPIs
     }
 })()
-export class WebExtensionEnvironment {
-    public realm = Realm.makeRootRealm()
-    constructor(extensionID: string, manifest: Manifest) {
-        Object.defineProperties(this.realm.global, staticGlobal(this.realm.global))
-        this.realm.global.browser = BrowserFactory(extensionID, manifest)
-        this.realm.global.URL = enhanceURL(this.realm.global.URL, extensionID)
-        Object.defineProperties(this.realm.global, {
+export class WebExtensionEnvironment extends Realm {
+    constructor(public extensionID: string, public manifest: Manifest) {
+        super()
+    }
+    init() {
+        super.init()
+        Object.defineProperties(this.global, staticGlobal(this.global))
+        this.global.browser = BrowserFactory(this.extensionID, this.manifest)
+        this.global.URL = enhanceURL(this.global.URL, this.extensionID)
+        Object.defineProperties(this.global, {
             window: {
                 configurable: false,
                 writable: false,
                 enumerable: true,
-                value: this.realm.global,
+                value: this.global,
+            },
+            global: {
+                configurable: false,
+                writable: false,
+                enumerable: true,
+                value: this.global,
             },
         })
-        Object.assign(this.realm.global, {
-            globalThis: this.realm.global,
+        Object.assign(this.global, {
+            globalThis: this.global,
         })
     }
 }

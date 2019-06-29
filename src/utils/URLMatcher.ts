@@ -43,7 +43,7 @@ function matches_matcher(_: string, location: URL, about_blank?: boolean) {
     const [rule, wildcardProtocol] = normalizeURL(_)
     if (rule.port !== '') return false
     if (!protocol_matcher(rule.protocol, location.protocol, wildcardProtocol)) return false
-    if (!host_matcher(rule.host, location.host)) return false
+    if (!host_matcher(rule.hostname, location.hostname)) return false
     if (!path_matcher(rule.pathname, location.pathname, location.search)) return false
     return true
 }
