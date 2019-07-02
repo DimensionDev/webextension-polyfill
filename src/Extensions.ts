@@ -61,7 +61,7 @@ function loadContentScript(
     const { environment } = registeredWebExtension.get(extensionID)!
     Object.assign(window, { environment })
     for (const path of content.js || []) {
-        if (content_scripts[path]) {
+        if (typeof content_scripts[path] === 'string') {
             environment.evaluate(content_scripts[path])
         } else {
             console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)

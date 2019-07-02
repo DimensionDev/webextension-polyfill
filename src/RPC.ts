@@ -1,5 +1,6 @@
 /// <reference path="../node_modules/web-ext-types/global/index.d.ts" />
 import { AsyncCall } from '@holoflows/kit/es'
+import { dispatch } from './utils/LocalMessages'
 
 export interface Host {
     /**
@@ -138,7 +139,7 @@ export interface Host {
 }
 
 const key = 'holoflowsjsonrpc'
-const isDebug = location.href === 'about.blank'
+const isDebug = location.href === 'http://localhost:5000/'
 class iOSWebkitChannel {
     constructor() {
         document.addEventListener(key, e => {
@@ -177,16 +178,13 @@ class iOSWebkitChannel {
 }
 export const Host = AsyncCall<Host>(
     {
-        'browser.webNavigation.onCommitted': async (
-            ...args: Parameters<Host['browser.webNavigation.onCommitted']>
-        ) => {},
+        'browser.webNavigation.onCommitted': dispatch.bind(null, 'browser.webNavigation.onCommitted'),
         async onMessage(...args: Parameters<Host['onMessage']>) {},
     },
     {
         dontThrowOnNotImplemented: false,
         key: '',
         strictJSONRPC: true,
-        writeToConsole: true,
         MessageCenter: iOSWebkitChannel,
     },
 )
