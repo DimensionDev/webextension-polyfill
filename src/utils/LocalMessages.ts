@@ -1,24 +1,31 @@
 import { Host } from '../RPC'
 type WebExtensionID = string
+type MessageID = string
 type webNavigationOnCommittedArgs = Parameters<Host['browser.webNavigation.onCommitted']>
 type onMessageArgs = Parameters<Host['onMessage']>
-type PoolKeys = 'browser.webNavigation.onCommitted'
-const EventPools: Record<PoolKeys, Map<WebExtensionID, Set<Function>>> = {
+type PoolKeys = 'browser.webNavigation.onCommitted' | 'browser.runtime.onMessage'
+/**
+ * Used for keep reference to browser.runtime.onMessage
+ */
+export const TwoWayMessagePromiseResolver = new Map<MessageID, [(val: any) => any, (val: any) => any]>()
+export const EventPools: Record<PoolKeys, Map<WebExtensionID, Set<(...args: any[]) => any>>> = {
     'browser.webNavigation.onCommitted': new Map(),
+    'browser.runtime.onMessage': new Map(),
 }
-export async function dispatch(event: PoolKeys, ...args: any[]) {
+export async function dispatchNormalEvent(event: PoolKeys, toExtensionID: string | string[] | '*', ...args: any[]) {
     if (!EventPools[event]) return
-    for (const [o, f] of EventPools[event].entries()) {
-        for (const fs of f) {
+    for (const [extensionID, fns] of EventPools[event].entries()) {
+        if (Array.isArray(toExtensionID) && toExtensionID.indexOf(extensionID) === -1) continue
+        if (!Array.isArray(toExtensionID) && toExtensionID !== extensionID && toExtensionID !== '*') continue
+        for (const f of fns) {
             try {
-                fs(...args)
+                f(...args)
             } catch (e) {
                 console.error(e)
             }
         }
     }
 }
-Object.assign(window, { dispatch })
 export function createEventListener(extensionID: string, event: PoolKeys) {
     if (!EventPools[event].has(extensionID)) {
         EventPools[event].set(extensionID, new Set())

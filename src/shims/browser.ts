@@ -1,5 +1,6 @@
 import { Host } from '../RPC'
 import { createEventListener } from '../utils/LocalMessages'
+import { createSendMessage } from './browser.message'
 /**
  * Create a new `browser` object.
  * @param extensionID - Extension ID
@@ -31,7 +32,8 @@ export function BrowserFactory(
             getManifest() {
                 return JSON.parse(JSON.stringify(manifest))
             },
-            onMessage: NotImplementedProxy<typeof browser.runtime.onMessage>({}),
+            onMessage: createEventListener(extensionID, 'browser.runtime.onMessage'),
+            sendMessage: createSendMessage(extensionID),
         }),
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {
@@ -83,6 +85,7 @@ export function BrowserFactory(
     return NotImplementedProxy<browser>(implementation, false)
 }
 type browser = typeof browser
+
 function Implements<T>(implementation: T) {
     return implementation
 }

@@ -1,6 +1,7 @@
 /// <reference path="../node_modules/web-ext-types/global/index.d.ts" />
 import { AsyncCall } from '@holoflows/kit/es'
-import { dispatch } from './utils/LocalMessages'
+import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/LocalMessages'
+import { InternalMessage, onNormalMessage } from './shims/browser.message'
 
 export interface Host {
     /**
@@ -118,7 +119,7 @@ export interface Host {
         toExtensionID: string,
         tabId: number | null,
         messageID: string,
-        message: any,
+        message: InternalMessage,
     ): Promise<void>
     /**
      * @host
@@ -144,7 +145,7 @@ class iOSWebkitChannel {
     constructor() {
         document.addEventListener(key, e => {
             const detail = (e as CustomEvent<any>).detail
-            if (isDebug) console.log('receive', detail)
+            // if (isDebug) console.log('receive', detail)
             for (const f of this.listener) {
                 try {
                     f(detail)
@@ -158,7 +159,23 @@ class iOSWebkitChannel {
     }
     send(_: string, data: any): void {
         if (isDebug) {
-            console.log('send', data)
+            if (data.method === 'sendMessage') {
+                const [from, to, tab, msgid, { data: msg }] = data.params
+                setTimeout(() => {
+                    console.clear()
+                    document.dispatchEvent(
+                        new CustomEvent(key, {
+                            detail: {
+                                jsonrpc: '2.0',
+                                method: 'onMessage',
+                                id: Math.random(),
+                                params: [to, from, msgid, { data: msg, response: true }, { id: -1 }],
+                            },
+                        }),
+                    )
+                }, 2000)
+            }
+            // console.log('send', data)
             Object.assign(window, {
                 response: (response: any) =>
                     document.dispatchEvent(
@@ -178,8 +195,26 @@ class iOSWebkitChannel {
 }
 export const Host = AsyncCall<Host>(
     {
-        'browser.webNavigation.onCommitted': dispatch.bind(null, 'browser.webNavigation.onCommitted'),
-        async onMessage(...args: Parameters<Host['onMessage']>) {},
+        // todo: check dispatch target's manifest
+        'browser.webNavigation.onCommitted': dispatchNormalEvent.bind(null, 'browser.webNavigation.onCommitted', '*'),
+        async onMessage(
+            extensionID: string,
+            toExtensionID: string,
+            messageID: string,
+            message: InternalMessage,
+            sender: browser.runtime.MessageSender,
+        ) {
+            // ? this is a response to the message
+            if (TwoWayMessagePromiseResolver.has(messageID) && message.response) {
+                const [resolve, reject] = TwoWayMessagePromiseResolver.get(messageID)!
+                resolve(message.data)
+                TwoWayMessagePromiseResolver.delete(messageID)
+            } else if (message.response === false) {
+                onNormalMessage(message.data, sender, toExtensionID, extensionID, messageID)
+            } else {
+                // ? drop the message
+            }
+        },
     },
     {
         dontThrowOnNotImplemented: false,

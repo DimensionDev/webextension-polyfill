@@ -74,5 +74,5 @@ function warningNotImplementedItem(content: NonNullable<Manifest['content_script
         console.warn(`all_frames not supported yet. Defined at manifest.content_scripts[${index}].all_frames`)
     if (content.css) console.warn(`css not supported yet. Defined at manifest.content_scripts[${index}].css`)
     if (content.run_at && content.run_at !== 'document_start')
-        console.warn(`run_at not supported yet. Defined at manifest.content_scripts[${index}].css`)
+        console.warn(`run_at not supported yet. Defined at manifest.content_scripts[${index}].run_at`)
 }
