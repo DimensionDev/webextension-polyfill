@@ -1,4 +1,4 @@
-import Realm from 'realms-shim'
+import RealmConstructor, { Realm } from 'realms-shim'
 
 import { BrowserFactory } from './browser'
 import { Manifest } from '../Extensions'
@@ -43,12 +43,19 @@ const staticGlobal = (() => {
         return webAPIs
     }
 })()
-export class WebExtensionEnvironment extends Realm {
+export class WebExtensionEnvironment implements Realm<typeof globalThis> {
+    private realm = RealmConstructor.makeRootRealm()
+    get global() {
+        return this.realm.global
+    }
+    readonly [Symbol.toStringTag] = 'Realm'
+    evaluate(sourceText: string) {
+        return this.realm.evaluate(sourceText)
+    }
     constructor(public extensionID: string, public manifest: Manifest) {
-        super()
+        this.init()
     }
     init() {
-        super.init()
         Object.defineProperties(this.global, staticGlobal(this.global))
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
@@ -71,5 +78,3 @@ export class WebExtensionEnvironment extends Realm {
         })
     }
 }
-// ? Realm is not subclassable currently.
-Object.setPrototypeOf(WebExtensionEnvironment.prototype, Realm.prototype)

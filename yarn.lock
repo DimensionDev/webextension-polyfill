@@ -1695,7 +1695,7 @@ readable-stream@~1.1.9:
 
 "realms-shim@git://github.com/DimensionDev/realms-shim.git":
   version "1.0.0"
-  resolved "git://github.com/DimensionDev/realms-shim.git#a977befb129bb60d1f886ccba41d490854e9258d"
+  resolved "git://github.com/DimensionDev/realms-shim.git#44ab25eca8d928a070f813fd9dcd1216f31c00db"
 
 redent@^1.0.0:
   version "1.0.0"
