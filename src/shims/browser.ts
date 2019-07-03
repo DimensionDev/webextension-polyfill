@@ -48,6 +48,7 @@ export function BrowserFactory(
                 else t = tabID
                 await Promise.all(t.map(x => Host['browser.tabs.remove'](extensionID, x)))
             },
+            query: binding(extensionID, 'browser.tabs.query')(),
         }),
         storage: {
             local: Implements<typeof browser.storage.local>({

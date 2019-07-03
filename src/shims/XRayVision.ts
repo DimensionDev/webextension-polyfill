@@ -28,16 +28,9 @@ const staticGlobal = (() => {
             if (value && typeof value === 'function') {
                 desc.value = function(...args: any[]) {
                     if (new.target) return new value(...args)
-                    // ? Only native objects will have access to realWindow
-                    const symb = Symbol('Binding this')
-                    realWindow[symb as any] = value
-                    try {
-                        const result = (realWindow as any)[symb](...args)
-                        return result
-                    } finally {
-                        delete (realWindow as any)[symb]
-                    }
+                    return Reflect.apply(value, realWindow, args)
                 }
+                desc.value.prototype = value.prototype
             }
         }
         return webAPIs

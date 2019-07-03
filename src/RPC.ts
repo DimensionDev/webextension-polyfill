@@ -107,6 +107,15 @@ export interface Host {
      */
     'browser.tabs.remove'(extensionID: string, tabId: number): Promise<void>
     /**
+     * Query opened tabs
+     * @param extensionID
+     * @param options Options
+     */
+    'browser.tabs.query'(
+        extensionID: string,
+        queryInfo: Parameters<typeof browser.tabs.query>[0],
+    ): Promise<browser.tabs.Tab[]>
+    /**
      * Used to implement browser.runtime.onMessage and browser.tabs.onMessage
      * @param extensionID Who send this message
      * @param toExtensionID Who will receive this message
@@ -145,7 +154,6 @@ class iOSWebkitChannel {
     constructor() {
         document.addEventListener(key, e => {
             const detail = (e as CustomEvent<any>).detail
-            // if (isDebug) console.log('receive', detail)
             for (const f of this.listener) {
                 try {
                     f(detail)
@@ -159,23 +167,7 @@ class iOSWebkitChannel {
     }
     send(_: string, data: any): void {
         if (isDebug) {
-            if (data.method === 'sendMessage') {
-                const [from, to, tab, msgid, { data: msg }] = data.params
-                setTimeout(() => {
-                    console.clear()
-                    document.dispatchEvent(
-                        new CustomEvent(key, {
-                            detail: {
-                                jsonrpc: '2.0',
-                                method: 'onMessage',
-                                id: Math.random(),
-                                params: [to, from, msgid, { data: msg, response: true }, { id: -1 }],
-                            },
-                        }),
-                    )
-                }, 2000)
-            }
-            // console.log('send', data)
+            console.log('send', data)
             Object.assign(window, {
                 response: (response: any) =>
                     document.dispatchEvent(
