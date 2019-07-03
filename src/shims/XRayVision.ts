@@ -4,7 +4,13 @@ import { BrowserFactory } from './browser'
 import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
 
-const staticGlobal = (() => {
+function getPrototypeChain(o: any, _: any[] = []): any[] {
+    if (o === undefined || o === null) return _
+    const y = Object.getPrototypeOf(o)
+    if (y === null || y === undefined || y === Object.prototype) return _
+    return getPrototypeChain(Object.getPrototypeOf(y), [..._, y])
+}
+const PrepareWebAPIs = (() => {
     const realWindow = window
     const webAPIs = Object.getOwnPropertyDescriptors(window)
     Reflect.deleteProperty(webAPIs, 'window')
@@ -17,23 +23,30 @@ const staticGlobal = (() => {
         },
     })
     return (sandboxRoot: typeof globalThis) => {
-        const clonedWebAPIs = webAPIs
+        const clonedWebAPIs = { ...webAPIs }
         Object.getOwnPropertyNames(sandboxRoot).forEach(name => Reflect.deleteProperty(clonedWebAPIs, name))
+        // ? Clone Web APIs
         for (const key in webAPIs) {
-            const desc = webAPIs[key]
-            const { get, set, value } = desc
-            if (get) desc.get = () => get.apply(realWindow)
-            if (set) desc.set = (val: any) => set.apply(realWindow, val)
-
-            if (value && typeof value === 'function') {
-                desc.value = function(...args: any[]) {
-                    if (new.target) return new value(...args)
-                    return Reflect.apply(value, realWindow, args)
-                }
-                desc.value.prototype = value.prototype
-            }
+            PatchThisOfDescriptorToGlobal(webAPIs[key], realWindow)
         }
-        return webAPIs
+        Object.defineProperty(sandboxRoot, 'window', {
+            configurable: false,
+            writable: false,
+            enumerable: true,
+            value: sandboxRoot,
+        })
+        Object.assign(sandboxRoot, { globalThis: sandboxRoot })
+        const proto = getPrototypeChain(realWindow)
+            .map(Object.getOwnPropertyDescriptors)
+            .reduceRight((previous, current) => {
+                const copy = { ...current }
+                for (const key in current) {
+                    PatchThisOfDescriptorToGlobal(current[key], realWindow)
+                }
+                return Object.create(previous, current)
+            }, {})
+        Object.setPrototypeOf(sandboxRoot, proto)
+        Object.defineProperties(sandboxRoot, clonedWebAPIs)
     }
 })()
 export class WebExtensionEnvironment implements Realm<typeof globalThis> {
@@ -49,25 +62,20 @@ export class WebExtensionEnvironment implements Realm<typeof globalThis> {
         this.init()
     }
     init() {
-        Object.defineProperties(this.global, staticGlobal(this.global))
+        PrepareWebAPIs(this.global)
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
-        Object.defineProperties(this.global, {
-            window: {
-                configurable: false,
-                writable: false,
-                enumerable: true,
-                value: this.global,
-            },
-            global: {
-                configurable: false,
-                writable: false,
-                enumerable: true,
-                value: this.global,
-            },
-        })
-        Object.assign(this.global, {
-            globalThis: this.global,
-        })
+    }
+}
+function PatchThisOfDescriptorToGlobal(desc: PropertyDescriptor, global: Window) {
+    const { get, set, value } = desc
+    if (get) desc.get = () => get.apply(global)
+    if (set) desc.set = (val: any) => set.apply(global, val)
+    if (value && typeof value === 'function') {
+        desc.value = function(...args: any[]) {
+            if (new.target) return new value(...args)
+            return Reflect.apply(value, global, args)
+        }
+        desc.value.prototype = value.prototype
     }
 }
