@@ -1,0 +1,82 @@
+# Javascript Node CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-javascript/ for more details
+#
+version: 2.1
+jobs:
+    build:
+        docker:
+            - image: circleci/node:11.0
+        working_directory: ~/repo
+        steps:
+            # build holoflows-kit & Maskbook
+            - run:
+                  name: Build holoflows-kit
+                  command: |
+                      cd ..
+                      git clone -q --depth=1 https://github.com/DimensionDev/holoflows-kit
+            - restore_cache:
+                  keys:
+                      - v1-holoflows-{{ checksum "~/holoflows-kit/yarn.lock" }}
+                      # fallback to using the latest cache if no exact match is found
+                      - v1-holoflows-
+            - run:
+                  name: Install @holoflows/kit
+                  command: |
+                      cd ../holoflows-kit
+                      yarn install --frozen-lockfile
+            - save_cache:
+                  paths:
+                      - ~/holoflows-kit/node_modules
+                  key: v1-holoflows-{{ checksum "~/holoflows-kit/yarn.lock" }}
+            - run:
+                  name: Build @holoflows/kit
+                  command: |
+                      cd ../holoflows-kit
+                      yarn build
+                      yarn link
+
+            # build maskbook
+            - run:
+                  name: Clone Maskbook
+                  command: |
+                      cd ..
+                      git clone -q --depth=1 https://github.com/DimensionDev/Maskbook
+            - restore_cache:
+                  keys:
+                      - v1-maskbook-{{ .Branch }}-{{ checksum "~/Maskbook/yarn.lock" }}
+                      - v1-maskbook-{{ .Branch }}-
+                      - v1-maskbook-
+            - run:
+                  name: Build Maskbook
+                  command: |
+                      cd ../Maskbook/
+                      yarn install --frozen-lockfile
+                      yarn link @holoflows/kit
+                      yarn build
+            - save_cache:
+                  paths:
+                      - ~/Maskbook/node_modules
+                  key: v1-maskbook-{{ .Branch }}-{{ checksum "~/Maskbook/yarn.lock" }}
+            - checkout
+            - restore_cache:
+                  keys:
+                      - v1-ext-{{ .Branch }}-{{ checksum "yarn.lock" }}
+                      - v1-ext-{{ .Branch }}-
+                      - v1-ext-
+            - run:
+                  name: Build WebExtension shim
+                  command: |
+                      yarn install
+                      yarn remove realms-shim
+                      yarn add git://github.com/DimensionDev/realms-shim.git
+                      yarn
+                      mv ~/Maskbook/build ./src/extension
+                      mv ./src/extension/precache-*.js ./src/extension/precache-manifest.js
+                      cd src
+                      node codegen.js
+                      cd ..
+                      yarn build
+            - store_artifacts:
+                  path: dist/out.js
+                  destination: /Maskbook-in-WebExtension-shim.js

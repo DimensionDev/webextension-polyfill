@@ -14,11 +14,7 @@ const config = {
     },
     plugins: [
         string({
-            include: [
-                './src/extension/js/contentscript.js',
-                './src/extension/js/contentscript.js.map',
-                './src/extension/manifest.json',
-            ],
+            include: ['./src/extension/**/*.*'],
         }),
         nodeResolve({
             browser: true,
