@@ -1,16 +1,13 @@
 import { Host } from '../RPC'
 import { createEventListener } from '../utils/LocalMessages'
 import { createSendMessage } from './browser.message'
+import { Manifest } from '../Extensions'
 /**
  * Create a new `browser` object.
  * @param extensionID - Extension ID
- * @param manifest - Manfiest of the extension
+ * @param manifest - Manifest of the extension
  */
-export function BrowserFactory(
-    extensionID: string,
-    manifest: Partial<browser.runtime.Manifest> &
-        Pick<browser.runtime.Manifest, 'name' | 'version' | 'manifest_version'>,
-): browser {
+export function BrowserFactory(extensionID: string, manifest: Manifest): browser {
     const implementation: Partial<browser> = {
         downloads: NotImplementedProxy<typeof browser.downloads>({
             download: binding(extensionID, 'browser.downloads.download')({

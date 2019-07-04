@@ -4,6 +4,13 @@ const { createObjectURL, revokeObjectURL } = URL
 function getIDFromBlobURL(x: string) {
     return new URL(new URL(x).pathname).pathname
 }
+/**
+ * Modify the behavior of URL.*
+ * Let the blob:// url can be recognized by Host.
+ *
+ * @param url The original URL object
+ * @param extensionID
+ */
 export function enhanceURL(url: typeof URL, extensionID: string) {
     url.createObjectURL = createObjectURLEnhanced(extensionID)
     url.revokeObjectURL = revokeObjectURLEnhanced(extensionID)

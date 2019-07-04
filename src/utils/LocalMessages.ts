@@ -8,10 +8,17 @@ type PoolKeys = 'browser.webNavigation.onCommitted' | 'browser.runtime.onMessage
  * Used for keep reference to browser.runtime.onMessage
  */
 export const TwoWayMessagePromiseResolver = new Map<MessageID, [(val: any) => any, (val: any) => any]>()
+/**
+ * To store listener for Host dispatched events.
+ */
 export const EventPools: Record<PoolKeys, Map<WebExtensionID, Set<(...args: any[]) => any>>> = {
     'browser.webNavigation.onCommitted': new Map(),
     'browser.runtime.onMessage': new Map(),
 }
+/**
+ * Dispatch a normal event (that not have a "response").
+ * Like browser.webNavigation.onCommitted
+ */
 export async function dispatchNormalEvent(event: PoolKeys, toExtensionID: string | string[] | '*', ...args: any[]) {
     if (!EventPools[event]) return
     for (const [extensionID, fns] of EventPools[event].entries()) {
@@ -26,6 +33,11 @@ export async function dispatchNormalEvent(event: PoolKeys, toExtensionID: string
         }
     }
 }
+/**
+ * Create a `EventObject<ListenerType>` object.
+ *
+ * Can be set on browser.webNavigation.onCommitted etc...
+ */
 export function createEventListener(extensionID: string, event: PoolKeys) {
     if (!EventPools[event].has(extensionID)) {
         EventPools[event].set(extensionID, new Set())

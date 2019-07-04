@@ -2,7 +2,10 @@ import { Host } from '../RPC'
 
 import { TwoWayMessagePromiseResolver, EventPools } from '../utils/LocalMessages'
 import { deepClone } from '../utils/deepClone'
-
+/**
+ * Create browser.runtime.sendMessage() function
+ * @param extensionID
+ */
 export function createSendMessage(extensionID: string) {
     return function() {
         let toExtensionID: string, message: unknown, options: unknown
@@ -28,7 +31,9 @@ export function createSendMessage(extensionID: string) {
         })
     }
 }
-
+/**
+ * Message handler of normal message
+ */
 export function onNormalMessage(
     message: any,
     sender: browser.runtime.MessageSender,
