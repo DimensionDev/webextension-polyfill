@@ -1,5 +1,6 @@
 import { matchingURL } from './utils/URLMatcher'
 import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
+import { BrowserFactory } from './shims/browser'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -26,6 +27,7 @@ export function registerWebExtension(
         if (environment === 'content script') {
             LoadContentScript(manifest, extensionID, preloadedResources)
         } else if (environment === 'background script') {
+            LoadBackgroundScript(manifest, extensionID, preloadedResources)
         } else {
             console.warn(`[WebExtension] unknown running environment ${environment}`)
         }
@@ -33,6 +35,31 @@ export function registerWebExtension(
         console.error(e)
     }
     return registeredWebExtension.get(extensionID)
+}
+
+function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
+    if (!manifest.background) return
+    const { page, script } = manifest.background
+    if (page) return console.warn('[WebExtension] manifest.background.page is not supported yet!')
+    if (
+        location.href !== 'about:blank' &&
+        location.hostname !== 'localhost' &&
+        !location.href.startsWith('holoflows-extension://')
+    ) {
+        throw new TypeError(
+            `Background script only allowed in about:blank, localhost(for debugging) and holoflows-extension://`,
+        )
+    }
+    Object.assign(window, { browser: BrowserFactory(extensionID, manifest) })
+    for (const path of script || []) {
+        if (typeof preloadedResources[path] === 'string') {
+            // ? Run it in global scope.
+            const f = new Function(preloadedResources[path])
+            f()
+        } else {
+            console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)
+        }
+    }
 }
 
 function LoadContentScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
