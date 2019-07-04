@@ -16,5 +16,5 @@ const resources: Record<string, string> = {}
 
 const id = 'eofkdgkhfoebecmamljfaepckoecjhib'
 const manifest = JSON.parse(Manifest as any)
-const env = location.href === 'about:blank' || location.href.startsWith('holoflows-extension://')
+const env = true //location.href === 'about:blank' || location.href.startsWith('holoflows-extension://')
 registerWebExtension(id, manifest, env ? 'background script' : 'content script', resources)

@@ -88,7 +88,10 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                         ) as Partial<Location>,
                     } as Partial<Window>,
                     {
-                        get(_, key) {},
+                        get(_: any, key: any) {
+                            if (_[key]) return _[key]
+                            throw new TypeError('Not supported')
+                        },
                     },
                 ) as Window
             },
@@ -106,6 +109,9 @@ function NotImplementedProxy<T = any>(implemented: Partial<T> = {}, final = true
         get(target: any, key) {
             if (!target[key]) return final ? NotImplemented : NotImplementedProxy()
             return target[key]
+        },
+        apply() {
+            return NotImplemented()
         },
     })
 }
