@@ -79,6 +79,20 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
         webNavigation: NotImplementedProxy<typeof browser.webNavigation>({
             onCommitted: createEventListener(extensionID, 'browser.webNavigation.onCommitted'),
         }),
+        extension: NotImplementedProxy<typeof browser.extension>({
+            getBackgroundPage() {
+                return new Proxy(
+                    {
+                        location: new URL(
+                            `holoflows-extension://${extensionID}/_generated_background_page.html`,
+                        ) as Partial<Location>,
+                    } as Partial<Window>,
+                    {
+                        get(_, key) {},
+                    },
+                ) as Window
+            },
+        }),
     }
     return NotImplementedProxy<browser>(implementation, false)
 }

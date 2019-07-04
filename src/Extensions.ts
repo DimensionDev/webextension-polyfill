@@ -39,7 +39,7 @@ export function registerWebExtension(
 
 function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
     if (!manifest.background) return
-    const { page, script } = manifest.background
+    const { page, scripts } = manifest.background as any
     if (page) return console.warn('[WebExtension] manifest.background.page is not supported yet!')
     if (
         location.href !== 'about:blank' &&
@@ -51,10 +51,20 @@ function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloaded
         )
     }
     Object.assign(window, { browser: BrowserFactory(extensionID, manifest) })
-    for (const path of script || []) {
+    for (const path of (scripts as string[]) || []) {
         if (typeof preloadedResources[path] === 'string') {
             // ? Run it in global scope.
-            const f = new Function(preloadedResources[path])
+            const f = new Function(`with (
+                new Proxy(window, {
+                    get(target, key) {
+                        if (key === 'location')
+                            return new URL("holoflows-extension://${extensionID}/_generated_background_page.html")
+                        return target[key]
+                    }
+                }
+            )) {
+                ${preloadedResources[path]}
+              }`)
             f()
         } else {
             console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)
