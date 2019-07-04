@@ -50,26 +50,57 @@ function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloaded
             `Background script only allowed in about:blank, localhost(for debugging) and holoflows-extension://`,
         )
     }
+    {
+        const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!
+        Object.defineProperty(HTMLScriptElement.prototype, 'src', {
+            get() {
+                return src.get!.call(this)
+            },
+            set(val) {
+                console.log('Loading ', val)
+                if (val in preloadedResources || val.replace(/^\//, '') in preloadedResources) {
+                    RunInGlobalScope(extensionID, preloadedResources[val] || preloadedResources[val.replace(/^\//, '')])
+                    return true
+                }
+                src.set!.call(this, val)
+                return true
+            },
+        })
+    }
     Object.assign(window, { browser: BrowserFactory(extensionID, manifest) })
     for (const path of (scripts as string[]) || []) {
         if (typeof preloadedResources[path] === 'string') {
             // ? Run it in global scope.
-            const f = new Function(`with (
-                new Proxy(window, {
-                    get(target, key) {
-                        if (key === 'location')
-                            return new URL("holoflows-extension://${extensionID}/_generated_background_page.html")
-                        return target[key]
-                    }
-                }
-            )) {
-                ${preloadedResources[path]}
-              }`)
-            f()
+            RunInGlobalScope(extensionID, preloadedResources[path])
         } else {
             console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)
         }
     }
+}
+
+function RunInGlobalScope(extensionID: string, src: string) {
+    const f = new Function(`with (
+                new Proxy(window, {
+                    get(target, key) {
+                        if (key === 'location')
+                            return new URL("holoflows-extension://${extensionID}/_generated_background_page.html")
+                        if(typeof target[key] === 'function') {
+                            const desc2 = Object.getOwnPropertyDescriptors(target[key])
+                            function f(...args) {
+                                if (new.target) return Reflect.construct(target[key], args, new.target)
+                                return Reflect.apply(target[key], window, args)
+                            }
+                            Object.defineProperties(f, desc2)
+                            f.prototype = target[key].prototype
+                            return f
+                        }
+                        return target[key]
+                    }
+                }
+            )) {
+                ${src}
+              }`)
+    f()
 }
 
 function LoadContentScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {

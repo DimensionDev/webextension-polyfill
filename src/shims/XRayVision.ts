@@ -115,10 +115,12 @@ function PatchThisOfDescriptorToGlobal(desc: PropertyDescriptor, global: Window)
     if (get) desc.get = () => get.apply(global)
     if (set) desc.set = (val: any) => set.apply(global, val)
     if (value && typeof value === 'function') {
+        const desc2 = Object.getOwnPropertyDescriptors(value)
         desc.value = function(...args: any[]) {
             if (new.target) return Reflect.construct(value, args, new.target)
             return Reflect.apply(value, global, args)
         }
+        Object.defineProperties(desc.value, desc2)
         desc.value.prototype = value.prototype
     }
 }
