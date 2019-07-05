@@ -121,6 +121,9 @@ function PatchThisOfDescriptorToGlobal(desc: PropertyDescriptor, global: Window)
             return Reflect.apply(value, global, args)
         }
         Object.defineProperties(desc.value, desc2)
-        desc.value.prototype = value.prototype
+        try {
+            // ? For unknown reason this fail for some objects on Safari.
+            desc.value.prototype = value.prototype
+        } catch {}
     }
 }
