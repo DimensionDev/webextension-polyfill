@@ -61,10 +61,10 @@ const PrepareWebAPIs = (() => {
             .map(Object.getOwnPropertyDescriptors)
             .reduceRight((previous, current) => {
                 const copy = { ...current }
-                for (const key in current) {
-                    PatchThisOfDescriptorToGlobal(current[key], realWindow)
+                for (const key in copy) {
+                    PatchThisOfDescriptorToGlobal(copy[key], realWindow)
                 }
-                return Object.create(previous, current)
+                return Object.create(previous, copy)
             }, {})
         Object.setPrototypeOf(sandboxRoot, proto)
         Object.defineProperties(sandboxRoot, clonedWebAPIs)

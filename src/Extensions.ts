@@ -41,14 +41,8 @@ function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloaded
     if (!manifest.background) return
     const { page, scripts } = manifest.background as any
     if (page) return console.warn('[WebExtension] manifest.background.page is not supported yet!')
-    if (
-        location.href !== 'about:blank' &&
-        location.hostname !== 'localhost' &&
-        !location.href.startsWith('holoflows-extension://')
-    ) {
-        throw new TypeError(
-            `Background script only allowed in about:blank, localhost(for debugging) and holoflows-extension://`,
-        )
+    if (location.hostname !== 'localhost' && !location.href.startsWith('holoflows-extension://')) {
+        throw new TypeError(`Background script only allowed in localhost(for debugging) and holoflows-extension://`)
     }
     {
         const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!
@@ -77,8 +71,8 @@ function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloaded
         }
     }
 }
-
 function RunInGlobalScope(extensionID: string, src: string) {
+    if (location.protocol === 'holoflows-extension:') return new Function(src)()
     const f = new Function(`with (
                 new Proxy(window, {
                     get(target, key) {
