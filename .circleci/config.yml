@@ -9,34 +9,7 @@ jobs:
             - image: circleci/node:11.0
         working_directory: ~/repo
         steps:
-            # build holoflows-kit & Maskbook
-            - run:
-                  name: Build holoflows-kit
-                  command: |
-                      cd ..
-                      git clone -q --depth=1 https://github.com/DimensionDev/holoflows-kit
-            - restore_cache:
-                  keys:
-                      - v1-holoflows-{{ checksum "~/holoflows-kit/yarn.lock" }}
-                      # fallback to using the latest cache if no exact match is found
-                      - v1-holoflows-
-            - run:
-                  name: Install @holoflows/kit
-                  command: |
-                      cd ../holoflows-kit
-                      yarn install --frozen-lockfile
-            - save_cache:
-                  paths:
-                      - ~/holoflows-kit/node_modules
-                  key: v1-holoflows-{{ checksum "~/holoflows-kit/yarn.lock" }}
-            - run:
-                  name: Build @holoflows/kit
-                  command: |
-                      cd ../holoflows-kit
-                      yarn build
-                      yarn link
-
-            # build maskbook
+            # build Maskbook
             - run:
                   name: Clone Maskbook
                   command: |
@@ -52,7 +25,6 @@ jobs:
                   command: |
                       cd ../Maskbook/
                       yarn install --frozen-lockfile
-                      yarn link @holoflows/kit
                       yarn build
             - save_cache:
                   paths:
