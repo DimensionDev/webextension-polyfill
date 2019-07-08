@@ -146,6 +146,69 @@ export interface Host {
         message: any,
         sender: browser.runtime.MessageSender,
     ): Promise<void>
+    // ? Cross origin related
+    'fetch'(
+        extensionID: string,
+        request: {
+            /** GET, POST, .... */
+            method: string
+            url: string
+        },
+    ): Promise<{
+        /** response code */
+        status: number
+        /** response text */
+        statusText: string
+        mimeType: string
+        type: 'text' | 'binary'
+        /** if type is binary, content is base64 encoded */
+        content: string
+    }>
+    // ? Websocket
+    'websocket.create'(extensionID: string, url: string): Promise<number>
+    /**
+     * @host
+     * https://developer.mozilla.org/zh-CN/docs/Web/API/CloseEvent
+     */
+    'websocket.onClose'(code: number, reason: string, wasClean: boolean): Promise<void>
+    /**
+     * @host
+     * https://developer.mozilla.org/zh-CN/docs/Web/API/WebSocket/onerror
+     */
+    'websocket.onError'(websocketID: number, reason: string): Promise<void>
+    /**
+     * @host
+     * https://developer.mozilla.org/zh-CN/docs/Web/API/WebSocket/onmessage
+     */
+    'websocket.onMessage'(
+        websocketID: number,
+        data: {
+            type: 'text' | 'array buffer' | 'binary'
+            data: string
+            /** Only when type is binary */
+            mimeType: string
+            origin: string
+        },
+    ): Promise<void>
+    /**
+     * @host
+     */
+    'websocket.onOpen'(websocketID: number): Promise<void>
+    /**
+     * https://developer.mozilla.org/zh-CN/docs/Web/API/WebSocket/close
+     */
+    'websocket.close'(extensionID: string, websocketID: number, code: number, reason: string): Promise<void>
+    /**
+     * https://developer.mozilla.org/zh-CN/docs/Web/API/WebSocket/send
+     */
+    'websocket.send'(
+        extensionID: string,
+        websocketID: number,
+        data: {
+            type: 'text' | 'array buffer' | 'blob'
+            content: string
+        },
+    ): Promise<void>
 }
 
 const key = 'holoflowsjsonrpc'
