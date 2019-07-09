@@ -4,7 +4,7 @@ import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/Local
 import { InternalMessage, onNormalMessage } from './shims/browser.message'
 
 /** Define Blob type in communicate with remote */
-type StringOrBlob =
+export type StringOrBlob =
     | {
           type: 'text'
           content: string

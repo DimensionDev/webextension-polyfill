@@ -18,6 +18,7 @@ import RealmConstructor, { Realm } from 'realms-shim'
 import { BrowserFactory } from './browser'
 import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
+import { createFetch } from './fetch'
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -98,6 +99,7 @@ export class WebExtensionContentScriptEnvironment implements Realm<typeof global
         PrepareWebAPIs(this.global)
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
+        this.global.fetch = createFetch(this.extensionID)
     }
 }
 /**
