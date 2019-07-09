@@ -2,6 +2,7 @@
 import { AsyncCall } from '@holoflows/kit/es'
 import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/LocalMessages'
 import { InternalMessage, onNormalMessage } from './shims/browser.message'
+import { onWebSocketClose, onWebSocketError, onWebSocketMessage } from './shims/WebSocket'
 
 /** Define Blob type in communicate with remote */
 export type StringOrBlob =
@@ -220,7 +221,7 @@ export interface ThisSideImplementation {
     /**
      * @see https://developer.mozilla.org/docs/Web/API/CloseEvent
      */
-    'websocket.onClose'(code: number, reason: string, wasClean: boolean): Promise<void>
+    'websocket.onClose'(websocketID: number, code: number, reason: string, wasClean: boolean): Promise<void>
     /**
      * @see https://developer.mozilla.org/docs/Web/API/WebSocket/onerror
      */
@@ -229,10 +230,6 @@ export interface ThisSideImplementation {
      * @see https://developer.mozilla.org/docs/Web/API/WebSocket/onmessage
      */
     'websocket.onMessage'(websocketID: number, data: StringOrBlob): Promise<void>
-    /**
-     * @see https://developer.mozilla.org/docs/Web/API/WebSocket/onOpen
-     */
-    'websocket.onOpen'(websocketID: number): Promise<void>
 }
 
 const key = 'holoflowsjsonrpc'
@@ -293,10 +290,15 @@ const ThisSideImplementation: ThisSideImplementation = {
             // ? drop the message
         }
     },
-    async 'websocket.onClose'() {},
-    async 'websocket.onError'() {},
-    async 'websocket.onMessage'() {},
-    async 'websocket.onOpen'() {},
+    async 'websocket.onClose'(websocketID: number, code: number, reason: string, wasClean: boolean) {
+        onWebSocketClose(websocketID, code, reason, wasClean)
+    },
+    async 'websocket.onError'(websocketID: number, reason: string) {
+        onWebSocketError(websocketID, reason)
+    },
+    async 'websocket.onMessage'(websocketID: number, data: StringOrBlob) {
+        onWebSocketMessage(websocketID, data)
+    },
 }
 export const Host = AsyncCall<Host>(ThisSideImplementation as any, {
     dontThrowOnNotImplemented: false,

@@ -19,6 +19,7 @@ import { BrowserFactory } from './browser'
 import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
 import { createFetch } from './fetch'
+import { createWebSocket } from './WebSocket'
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -100,6 +101,7 @@ export class WebExtensionContentScriptEnvironment implements Realm<typeof global
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
         this.global.fetch = createFetch(this.extensionID)
+        this.global.WebSocket = createWebSocket(this.extensionID)
     }
 }
 /**
