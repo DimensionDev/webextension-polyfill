@@ -29,7 +29,7 @@ export function registerWebExtension(
         if (environment === 'content script') {
             LoadContentScript(manifest, extensionID, preloadedResources)
         } else if (environment === 'background script') {
-            LoadBackgroundScript(manifest, extensionID, preloadedResources)
+            untilDocumentReady().then(() => LoadBackgroundScript(manifest, extensionID, preloadedResources))
         } else {
             console.warn(`[WebExtension] unknown running environment ${environment}`)
         }
@@ -37,6 +37,13 @@ export function registerWebExtension(
         console.error(e)
     }
     return registeredWebExtension.get(extensionID)
+}
+
+function untilDocumentReady() {
+    if (document.readyState === 'complete') return Promise.resolve()
+    return new Promise(resolve => {
+        document.addEventListener('readystatechange', resolve, { once: true, passive: true })
+    })
 }
 
 function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
