@@ -134,6 +134,19 @@ export interface Host {
         extensionID: string,
         queryInfo: Parameters<typeof browser.tabs.query>[0],
     ): Promise<browser.tabs.Tab[]>
+    /**
+     * Update a tab's property
+     * @param extensionID
+     * @param tabId If it is undefined, ignore this request
+     * @param updateProperties
+     */
+    'browser.tabs.update'(
+        extensionID: string,
+        tabId?: number,
+        updateProperties?: {
+            url?: string
+        },
+    ): Promise<browser.tabs.Tab>
     //#endregion
     //#region // ? Message
     /**
