@@ -27,7 +27,7 @@ export function registerWebExtension(
     if (location.protocol === 'holoflows-extension:') prepareBackgroundAndOptionsPageEnvironment(extensionID, manifest)
     try {
         if (environment === 'content script') {
-            LoadContentScript(manifest, extensionID, preloadedResources)
+            untilDocumentReady().then(() => LoadContentScript(manifest, extensionID, preloadedResources))
         } else if (environment === 'background script') {
             untilDocumentReady().then(() => LoadBackgroundScript(manifest, extensionID, preloadedResources))
         } else {
