@@ -1,6 +1,7 @@
 import { matchingURL } from './utils/URLMatcher'
 import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
 import { BrowserFactory } from './shims/browser'
+import { createFetch } from './shims/fetch'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -61,7 +62,10 @@ function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloaded
             },
         })
     }
-    Object.assign(window, { browser: BrowserFactory(extensionID, manifest) })
+    Object.assign(window, {
+        browser: BrowserFactory(extensionID, manifest),
+        fetch: createFetch(extensionID),
+    } as Partial<typeof globalThis>)
     for (const path of (scripts as string[]) || []) {
         if (typeof preloadedResources[path] === 'string') {
             // ? Run it in global scope.
