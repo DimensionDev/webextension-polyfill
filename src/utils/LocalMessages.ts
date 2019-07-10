@@ -1,8 +1,8 @@
-import { Host } from '../RPC'
+import { ThisSideImplementation } from '../RPC'
 type WebExtensionID = string
 type MessageID = string
-type webNavigationOnCommittedArgs = Parameters<Host['browser.webNavigation.onCommitted']>
-type onMessageArgs = Parameters<Host['onMessage']>
+type webNavigationOnCommittedArgs = Parameters<ThisSideImplementation['browser.webNavigation.onCommitted']>
+type onMessageArgs = Parameters<ThisSideImplementation['onMessage']>
 type PoolKeys = 'browser.webNavigation.onCommitted' | 'browser.runtime.onMessage'
 /**
  * Used for keep reference to browser.runtime.onMessage

@@ -1,4 +1,5 @@
 import { Host } from '../RPC'
+import { encodeStringOrBlob } from '../utils/StringOrBlob'
 
 const { createObjectURL, revokeObjectURL } = URL
 function getIDFromBlobURL(x: string) {
@@ -30,7 +31,7 @@ function createObjectURLEnhanced(extensionID: string): (object: any) => string {
         const url = createObjectURL(obj)
         const resourceID = getIDFromBlobURL(url)
         if (obj instanceof Blob) {
-            blobToBase64(obj).then(base64 => Host['URL.createObjectURL'](extensionID, resourceID, base64, obj.type))
+            encodeStringOrBlob(obj).then(blob => Host['URL.createObjectURL'](extensionID, resourceID, blob))
         }
         return url
     }

@@ -220,7 +220,6 @@ function binding<
  */
 type BrowserReference = { [key in keyof typeof Host]: (...args: unknown[]) => Promise<unknown> } & {
     'browser.downloads.download': typeof browser.downloads.download
-    'browser.storage.local.getBytesInUse': (keys: string | string[] | null) => Promise<number>
     'browser.tabs.create': typeof browser.tabs.create
 }
 type PromiseOf<T> = T extends Promise<infer U> ? U : never
