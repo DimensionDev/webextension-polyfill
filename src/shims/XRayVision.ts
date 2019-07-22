@@ -35,8 +35,10 @@ function getPrototypeChain(o: any, _: any[] = []): any[] {
  */
 const PrepareWebAPIs = (() => {
     // ? replace Function with polluted version by Realms
-    // @ts-ignore
-    globalThis.Function = (() => {}).constructor
+    // ! this leaks the sandbox!
+    Object.defineProperty(Object.getPrototypeOf(() => {}), 'constructor', {
+        value: globalThis.Function,
+    })
     const realWindow = window
     const webAPIs = Object.getOwnPropertyDescriptors(window)
     Reflect.deleteProperty(webAPIs, 'window')
