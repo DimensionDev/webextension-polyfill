@@ -34,6 +34,9 @@ function getPrototypeChain(o: any, _: any[] = []): any[] {
  * Apply all WebAPIs to the clean sandbox created by Realm
  */
 const PrepareWebAPIs = (() => {
+    // ? replace Function with polluted version by Realms
+    // @ts-ignore
+    globalThis.Function = (() => {}).constructor
     const realWindow = window
     const webAPIs = Object.getOwnPropertyDescriptors(window)
     Reflect.deleteProperty(webAPIs, 'window')
