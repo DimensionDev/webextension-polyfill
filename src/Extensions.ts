@@ -53,23 +53,23 @@ function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloaded
     if (location.hostname !== 'localhost' && !location.href.startsWith('holoflows-extension://')) {
         throw new TypeError(`Background script only allowed in localhost(for debugging) and holoflows-extension://`)
     }
-    // {
-    //     const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!
-    //     Object.defineProperty(HTMLScriptElement.prototype, 'src', {
-    //         get() {
-    //             return src.get!.call(this)
-    //         },
-    //         set(val) {
-    //             console.log('Loading ', val)
-    //             if (val in preloadedResources || val.replace(/^\//, '') in preloadedResources) {
-    //                 RunInGlobalScope(extensionID, preloadedResources[val] || preloadedResources[val.replace(/^\//, '')])
-    //                 return true
-    //             }
-    //             src.set!.call(this, val)
-    //             return true
-    //         },
-    //     })
-    // }
+    {
+        const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!
+        Object.defineProperty(HTMLScriptElement.prototype, 'src', {
+            get() {
+                return src.get!.call(this)
+            },
+            set(val) {
+                console.log('Loading ', val)
+                if (val in preloadedResources || val.replace(/^\//, '') in preloadedResources) {
+                    RunInGlobalScope(extensionID, preloadedResources[val] || preloadedResources[val.replace(/^\//, '')])
+                    return true
+                }
+                src.set!.call(this, val)
+                return true
+            },
+        })
+    }
     prepareBackgroundAndOptionsPageEnvironment(extensionID, manifest)
     for (const path of (scripts as string[]) || []) {
         if (typeof preloadedResources[path] === 'string') {
