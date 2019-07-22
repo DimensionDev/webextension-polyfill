@@ -262,7 +262,7 @@ class iOSWebkitChannel {
     on(_: string, cb: (data: any) => void): void {
         this.listener.push(cb)
     }
-    send(_: string, data: any): void {
+    emit(_: string, data: any): void {
         if (isDebug) {
             console.log('send', data)
             Object.assign(window, {
@@ -314,8 +314,7 @@ const ThisSideImplementation: ThisSideImplementation = {
     },
 }
 export const Host = AsyncCall<Host>(ThisSideImplementation as any, {
-    dontThrowOnNotImplemented: false,
     key: '',
-    strictJSONRPC: true,
-    MessageCenter: iOSWebkitChannel,
+    log: false,
+    messageChannel: new iOSWebkitChannel(),
 })
