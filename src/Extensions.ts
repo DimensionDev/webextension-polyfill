@@ -2,6 +2,7 @@ import { matchingURL } from './utils/URLMatcher'
 import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
 import { BrowserFactory } from './shims/browser'
 import { createFetch } from './shims/fetch'
+import { enhanceURL } from './shims/URL.create+revokeObjectURL'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -84,6 +85,7 @@ function prepareBackgroundAndOptionsPageEnvironment(extensionID: string, manifes
     Object.assign(window, {
         browser: BrowserFactory(extensionID, manifest),
         fetch: createFetch(extensionID),
+        URL: enhanceURL(URL, extensionID),
     } as Partial<typeof globalThis>)
 }
 
