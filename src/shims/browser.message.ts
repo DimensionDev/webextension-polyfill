@@ -6,9 +6,9 @@ import { deepClone } from '../utils/deepClone'
  * Create browser.runtime.sendMessage() function
  * @param extensionID
  */
-export function createSendMessage(extensionID: string) {
+export function createRuntimeSendMessage(extensionID: string) {
     return function() {
-        let toExtensionID: string, message: unknown, options: unknown
+        let toExtensionID: string, message: unknown
         if (arguments.length === 1) {
             toExtensionID = extensionID
             message = arguments[0]
@@ -18,19 +18,28 @@ export function createSendMessage(extensionID: string) {
         } else {
             toExtensionID = ''
         }
-        return new Promise((resolve, reject) => {
-            const messageID = Math.random().toString()
-            Host.sendMessage(extensionID, toExtensionID, null, messageID, {
-                data: message,
-                response: false,
-            }).catch(e => {
-                reject(e)
-                TwoWayMessagePromiseResolver.delete(messageID)
-            })
-            TwoWayMessagePromiseResolver.set(messageID, [resolve, reject])
-        })
+        return sendMessageWithResponse(extensionID, toExtensionID, null, message)
     }
 }
+export function sendMessageWithResponse<U>(
+    extensionID: string,
+    toExtensionID: string,
+    tabId: number | null,
+    message: unknown,
+) {
+    return new Promise<U>((resolve, reject) => {
+        const messageID = Math.random().toString()
+        Host.sendMessage(extensionID, toExtensionID, tabId, messageID, {
+            data: message,
+            response: false,
+        }).catch(e => {
+            reject(e)
+            TwoWayMessagePromiseResolver.delete(messageID)
+        })
+        TwoWayMessagePromiseResolver.set(messageID, [resolve, reject])
+    })
+}
+
 /**
  * Message handler of normal message
  */

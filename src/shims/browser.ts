@@ -1,6 +1,6 @@
 import { Host } from '../RPC'
 import { createEventListener } from '../utils/LocalMessages'
-import { createSendMessage } from './browser.message'
+import { createRuntimeSendMessage, sendMessageWithResponse } from './browser.message'
 import { Manifest } from '../Extensions'
 /**
  * Create a new `browser` object.
@@ -30,7 +30,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                 return JSON.parse(JSON.stringify(manifest))
             },
             onMessage: createEventListener(extensionID, 'browser.runtime.onMessage'),
-            sendMessage: createSendMessage(extensionID),
+            sendMessage: createRuntimeSendMessage(extensionID),
         }),
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {
@@ -47,6 +47,14 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
             },
             query: binding(extensionID, 'browser.tabs.query')(),
             update: binding(extensionID, 'browser.tabs.update')(),
+            async sendMessage<T = any, U = object>(
+                tabId: number,
+                message: T,
+                options?: { frameId?: number | undefined } | undefined,
+            ): Promise<void | U> {
+                PartialImplemented(options)
+                return sendMessageWithResponse(extensionID, extensionID, tabId, message)
+            },
         }),
         storage: {
             local: Implements<typeof browser.storage.local>({
@@ -71,8 +79,6 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                         return rtn
                     },
                 }),
-                // @ts-ignore We're implementing non-standard API in WebExtension
-                getBytesInUse: binding(extensionID, 'browser.storage.local.getBytesInUse')(),
             }),
             sync: NotImplementedProxy(),
             onChanged: NotImplementedProxy(),
@@ -121,7 +127,7 @@ function NotImplemented(): any {
         throw new Error('Not implemented!')
     }
 }
-function PartialImplemented<T>(obj: T, ...keys: (keyof T)[]) {
+function PartialImplemented<T>(obj: T = {} as any, ...keys: (keyof T)[]) {
     const obj2 = { ...obj }
     keys.forEach(x => delete obj2[x])
     if (Object.keys(obj2).length) console.warn(`Not implemented options`, obj2, `at`, new Error().stack)
