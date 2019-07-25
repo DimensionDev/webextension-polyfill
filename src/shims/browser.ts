@@ -2,6 +2,7 @@ import { Host } from '../RPC'
 import { createEventListener } from '../utils/LocalMessages'
 import { createRuntimeSendMessage, sendMessageWithResponse } from './browser.message'
 import { Manifest } from '../Extensions'
+import { getIDFromBlobURL } from './URL.create+revokeObjectURL'
 /**
  * Create a new `browser` object.
  * @param extensionID - Extension ID
@@ -12,7 +13,10 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
         downloads: NotImplementedProxy<typeof browser.downloads>({
             download: binding(extensionID, 'browser.downloads.download')({
                 param(options) {
-                    const { url, filename } = options
+                    let { url, filename } = options
+                    if (getIDFromBlobURL(url)) {
+                        url = `holoflows-blobs://${extensionID}/${getIDFromBlobURL(url)!}`
+                    }
                     PartialImplemented(options, 'filename', 'url')
                     const arg1 = { url, filename: filename || '' }
                     return [arg1]

@@ -2,8 +2,9 @@ import { Host } from '../RPC'
 import { encodeStringOrBlob } from '../utils/StringOrBlob'
 
 const { createObjectURL, revokeObjectURL } = URL
-function getIDFromBlobURL(x: string) {
-    return new URL(new URL(x).pathname).pathname
+export function getIDFromBlobURL(x: string) {
+    if (x.startsWith('blob:')) return new URL(new URL(x).pathname).pathname.replace(/^\//, '')
+    return undefined
 }
 /**
  * Modify the behavior of URL.*
@@ -21,7 +22,7 @@ export function enhanceURL(url: typeof URL, extensionID: string) {
 function revokeObjectURLEnhanced(extensionID: string): (url: string) => void {
     return (url: string) => {
         revokeObjectURL(url)
-        const id = getIDFromBlobURL(url)
+        const id = getIDFromBlobURL(url)!
         Host['URL.revokeObjectURL'](extensionID, id)
     }
 }
@@ -29,7 +30,7 @@ function revokeObjectURLEnhanced(extensionID: string): (url: string) => void {
 function createObjectURLEnhanced(extensionID: string): (object: any) => string {
     return (obj: File | Blob | MediaSource) => {
         const url = createObjectURL(obj)
-        const resourceID = getIDFromBlobURL(url)
+        const resourceID = getIDFromBlobURL(url)!
         if (obj instanceof Blob) {
             encodeStringOrBlob(obj).then(blob => Host['URL.createObjectURL'](extensionID, resourceID, blob))
         }
