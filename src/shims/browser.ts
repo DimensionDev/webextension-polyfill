@@ -15,7 +15,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                 param(options) {
                     let { url, filename } = options
                     if (getIDFromBlobURL(url)) {
-                        url = `holoflows-blobs://${extensionID}/${getIDFromBlobURL(url)!}`
+                        url = `holoflows-blob://${extensionID}/${getIDFromBlobURL(url)!}`
                     }
                     PartialImplemented(options, 'filename', 'url')
                     const arg1 = { url, filename: filename || '' }
