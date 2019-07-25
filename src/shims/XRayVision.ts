@@ -20,6 +20,7 @@ import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
 import { createFetch } from './fetch'
 import { createWebSocket } from './WebSocket'
+import { openEnhanced, closeEnhanced } from './window.open+close'
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -107,6 +108,8 @@ export class WebExtensionContentScriptEnvironment implements Realm<typeof global
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
         this.global.fetch = createFetch(this.extensionID)
         this.global.WebSocket = createWebSocket(this.extensionID)
+        this.global.open = openEnhanced(this.extensionID)
+        this.global.close = closeEnhanced(this.extensionID)
     }
 }
 /**

@@ -3,6 +3,7 @@ import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
 import { BrowserFactory } from './shims/browser'
 import { createFetch } from './shims/fetch'
 import { enhanceURL } from './shims/URL.create+revokeObjectURL'
+import { openEnhanced, closeEnhanced } from './shims/window.open+close'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -86,6 +87,8 @@ function prepareBackgroundAndOptionsPageEnvironment(extensionID: string, manifes
         browser: BrowserFactory(extensionID, manifest),
         fetch: createFetch(extensionID),
         URL: enhanceURL(URL, extensionID),
+        open: openEnhanced(extensionID),
+        close: closeEnhanced(extensionID),
     } as Partial<typeof globalThis>)
 }
 
