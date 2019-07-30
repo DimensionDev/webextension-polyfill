@@ -16,9 +16,12 @@ export const registeredWebExtension = new Map<WebExtensionID, WebExtension>()
 export function registerWebExtension(
     extensionID: string,
     manifest: Manifest,
-    environment: 'content script' | 'background script',
     preloadedResources: Record<string, string> = {},
 ) {
+    const environment: 'content script' | 'background script' =
+        location.href.startsWith('holoflows-extension://') && location.href.endsWith('_generated_background_page.html')
+            ? 'background script'
+            : 'content script'
     console.debug(
         `[WebExtension] Loading extension ${manifest.name}(${extensionID}) with manifest`,
         manifest,
