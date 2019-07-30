@@ -203,6 +203,9 @@ export interface Host {
      */
     'websocket.send'(extensionID: string, websocketID: number, data: StringOrBlob): Promise<void>
     //#endregion
+    //#region Shape Detection API
+    'barcodeDetector.detect'(extensionID: string): Promise<string[]>
+    //#endregion
 }
 /**
  * This describes what JSONRPC calls that JS side should implement
