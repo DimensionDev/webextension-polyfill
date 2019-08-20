@@ -1,5 +1,3 @@
-import { originalFetch } from '../Extensions'
-
 const normalized = Symbol('Normalized resources')
 function normalizePath(path: string, extensionID: string) {
     const prefix = getPrefix(extensionID)
@@ -30,7 +28,7 @@ export async function getResourceAsync(extensionID: string, resources: Record<st
     const preloaded = getResource(extensionID, resources, path)
     if (preloaded) return preloaded
 
-    const response = await originalFetch(normalizePath(path, extensionID))
+    const response = await fetch(normalizePath(path, extensionID))
     if (response.ok) return response.text()
     return undefined
 }

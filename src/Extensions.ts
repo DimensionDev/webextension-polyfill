@@ -94,7 +94,6 @@ async function LoadBackgroundScript(
         }
     }
 }
-export const originalFetch = window.fetch
 function prepareBackgroundAndOptionsPageEnvironment(extensionID: string, manifest: Manifest) {
     Object.assign(window, {
         browser: BrowserFactory(extensionID, manifest),
