@@ -11,6 +11,7 @@ export type Manifest = Partial<browser.runtime.Manifest> &
 export interface WebExtension {
     manifest: Manifest
     environment: WebExtensionContentScriptEnvironment
+    preloadedResources: Record<string, string>
 }
 export const registeredWebExtension = new Map<WebExtensionID, WebExtension>()
 export function registerWebExtension(
@@ -121,7 +122,7 @@ function RunInGlobalScope(extensionID: string, src: string) {
     f()
 }
 
-function LoadContentScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
+async function LoadContentScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
     for (const [index, content] of (manifest.content_scripts || []).entries()) {
         warningNotImplementedItem(content, index)
         if (
@@ -135,33 +136,43 @@ function LoadContentScript(manifest: Manifest, extensionID: string, preloadedRes
             )
         ) {
             console.debug(`[WebExtension] Loading content script for`, content)
-            loadContentScript(extensionID, manifest, content, preloadedResources)
+            await loadContentScript(extensionID, manifest, content, preloadedResources)
         } else {
             console.debug(`[WebExtension] URL mismatched. Skip content script for, `, content)
         }
     }
 }
 
-function loadContentScript(
+export async function loadContentScript(
     extensionID: string,
     manifest: Manifest,
     content: NonNullable<Manifest['content_scripts']>[0],
-    content_scripts: Record<string, string>,
+    preloadedResources: Record<string, string> = registeredWebExtension.has(extensionID)
+        ? registeredWebExtension.get(extensionID)!.preloadedResources
+        : {},
 ) {
     if (!registeredWebExtension.has(extensionID)) {
         const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
         const ext: WebExtension = {
             manifest,
             environment,
+            preloadedResources,
         }
         registeredWebExtension.set(extensionID, ext)
     }
     const { environment } = registeredWebExtension.get(extensionID)!
     for (const path of content.js || []) {
-        if (typeof content_scripts[path] === 'string') {
-            environment.evaluate(content_scripts[path])
+        if (typeof preloadedResources[path] === 'string') {
+            environment.evaluate(preloadedResources[path])
         } else {
             console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)
+            const url = new URL(path, 'holoflows-extension://' + extensionID + '/')
+            try {
+                const code = await (await fetch(url.toString())).text()
+                environment.evaluate(code)
+            } catch (e) {
+                console.warn(`[WebExtension] Content scripts not found for ${manifest.name}: ${path}`, e)
+            }
         }
     }
 }

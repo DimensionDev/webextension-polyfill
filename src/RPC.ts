@@ -2,6 +2,7 @@
 import { AsyncCall } from '@holoflows/kit/es'
 import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/LocalMessages'
 import { InternalMessage, onNormalMessage } from './shims/browser.message'
+import { registeredWebExtension, loadContentScript } from './Extensions'
 
 /** Define Blob type in communicate with remote */
 export type StringOrBlob =
@@ -97,21 +98,6 @@ export interface Host {
     'browser.storage.local.clear'(extensionID: string): Promise<void>
     //#endregion
     //#region // ? browser.tabs
-    /**
-     * Host should inject the given script into the given tabID
-     * @param extensionID
-     * @param tabID - Tab id that need inject script to
-     * @param details - See https://mdn.io/browser.tabs.executeScript
-     */
-    'browser.tabs.executeScript'(
-        extensionID: string,
-        tabID: number,
-        details: {
-            code?: string
-            file?: string
-            runAt?: 'document_start' | 'document_end' | 'document_idle'
-        },
-    ): Promise<void>
     /**
      * Host should create a new tab
      * @param extensionID
@@ -226,8 +212,23 @@ export interface ThisSideImplementation {
         extensionID: string,
         toExtensionID: string,
         messageID: string,
-        message: any,
+        message: InternalMessage,
         sender: browser.runtime.MessageSender,
+    ): Promise<void>
+    /**
+     * Should inject the given script into the given tabID
+     * @param extensionID
+     * @param tabID - Tab id that need inject script to
+     * @param details - See https://mdn.io/browser.tabs.executeScript
+     */
+    'browser.tabs.executeScript'(
+        extensionID: string,
+        tabID: number,
+        details: {
+            code?: string
+            file?: string
+            runAt?: 'document_start' | 'document_end' | 'document_idle'
+        },
     ): Promise<void>
 }
 
@@ -268,26 +269,42 @@ class iOSWebkitChannel {
             window.webkit.messageHandlers[key].postMessage(data)
     }
 }
-const ThisSideImplementation: ThisSideImplementation = {
+export const ThisSideImplementation: ThisSideImplementation = {
     // todo: check dispatch target's manifest
     'browser.webNavigation.onCommitted': dispatchNormalEvent.bind(null, 'browser.webNavigation.onCommitted', '*'),
-    async onMessage(
-        extensionID: string,
-        toExtensionID: string,
-        messageID: string,
-        message: InternalMessage,
-        sender: browser.runtime.MessageSender,
-    ) {
-        // ? this is a response to the message
-        if (TwoWayMessagePromiseResolver.has(messageID) && message.response) {
-            const [resolve, reject] = TwoWayMessagePromiseResolver.get(messageID)!
-            resolve(message.data)
-            TwoWayMessagePromiseResolver.delete(messageID)
-        } else if (message.response === false) {
-            onNormalMessage(message.data, sender, toExtensionID, extensionID, messageID)
-        } else {
-            // ? drop the message
+    async onMessage(extensionID, toExtensionID, messageID, message, sender) {
+        switch (message.type) {
+            case 'message':
+                // ? this is a response to the message
+                if (TwoWayMessagePromiseResolver.has(messageID) && message.response) {
+                    const [resolve, reject] = TwoWayMessagePromiseResolver.get(messageID)!
+                    resolve(message.data)
+                    TwoWayMessagePromiseResolver.delete(messageID)
+                } else if (message.response === false) {
+                    onNormalMessage(message.data, sender, toExtensionID, extensionID, messageID)
+                } else {
+                    // ? drop the message
+                }
+                break
+            case 'executeScript':
+                const ext = registeredWebExtension.get(extensionID)!
+                if (message.code) ext.environment.evaluate(message.code)
+                else if (message.file)
+                    loadContentScript(extensionID, ext.manifest, {
+                        js: [message.file],
+                        // TODO: check the permission to inject the script
+                        matches: ['<all_urls>'],
+                    })
+                break
+            default:
+                break
         }
+    },
+    async 'browser.tabs.executeScript'(extensionID, tabID, details) {
+        return Host.sendMessage(extensionID, extensionID, tabID, Math.random().toString(), {
+            ...details,
+            type: 'executeScript',
+        })
     },
 }
 export const Host = AsyncCall<Host>(ThisSideImplementation as any, {

@@ -1,4 +1,4 @@
-import { Host } from '../RPC'
+import { Host, ThisSideImplementation } from '../RPC'
 
 import { TwoWayMessagePromiseResolver, EventPools } from '../utils/LocalMessages'
 import { deepClone } from '../utils/deepClone'
@@ -30,6 +30,7 @@ export function sendMessageWithResponse<U>(
     return new Promise<U>((resolve, reject) => {
         const messageID = Math.random().toString()
         Host.sendMessage(extensionID, toExtensionID, tabId, messageID, {
+            type: 'message',
             data: message,
             response: false,
         }).catch(e => {
@@ -68,7 +69,11 @@ export function onNormalMessage(
                 result.then((data: unknown) => {
                     if (data === undefined || responseSend) return
                     responseSend = true
-                    Host.sendMessage(toExtensionID, extensionID, sender.tab!.id!, messageID, { data, response: true })
+                    Host.sendMessage(toExtensionID, extensionID, sender.tab!.id!, messageID, {
+                        data,
+                        response: true,
+                        type: 'message',
+                    })
                 })
             }
         } catch (e) {
@@ -76,11 +81,16 @@ export function onNormalMessage(
         }
     }
 }
-export interface InternalMessage {
-    data: any
-    error?: { message: string; stack: string }
-    response: boolean
-}
+export type InternalMessage =
+    | {
+          data: any
+          error?: { message: string; stack: string }
+          response: boolean
+          type: 'message'
+      }
+    | {
+          type: 'executeScript'
+      } & Parameters<ThisSideImplementation['browser.tabs.executeScript']>[2]
 
 function sendResponseDeprecated(): any {
     throw new Error(

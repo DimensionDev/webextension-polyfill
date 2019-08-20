@@ -1,4 +1,4 @@
-import { Host } from '../RPC'
+import { Host, ThisSideImplementation } from '../RPC'
 import { createEventListener } from '../utils/LocalMessages'
 import { createRuntimeSendMessage, sendMessageWithResponse } from './browser.message'
 import { Manifest } from '../Extensions'
@@ -39,7 +39,11 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {
                 PartialImplemented(details, 'code', 'file', 'runAt')
-                await Host['browser.tabs.executeScript'](extensionID, tabID === undefined ? -1 : tabID, details)
+                await ThisSideImplementation['browser.tabs.executeScript'](
+                    extensionID,
+                    tabID === undefined ? -1 : tabID,
+                    details,
+                )
                 return []
             },
             create: binding(extensionID, 'browser.tabs.create')(),
