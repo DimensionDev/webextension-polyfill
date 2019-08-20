@@ -97,7 +97,7 @@ async function LoadBackgroundScript(
 function prepareBackgroundAndOptionsPageEnvironment(extensionID: string, manifest: Manifest) {
     Object.assign(window, {
         browser: BrowserFactory(extensionID, manifest),
-        fetch: createFetch(extensionID),
+        fetch: createFetch(extensionID, window.fetch),
         URL: enhanceURL(URL, extensionID),
         open: openEnhanced(extensionID),
         close: closeEnhanced(extensionID),

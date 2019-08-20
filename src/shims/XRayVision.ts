@@ -105,7 +105,7 @@ export class WebExtensionContentScriptEnvironment implements Realm<typeof global
         PrepareWebAPIs(this.global)
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
-        this.global.fetch = createFetch(this.extensionID)
+        this.global.fetch = createFetch(this.extensionID, window.fetch)
         this.global.open = openEnhanced(this.extensionID)
         this.global.close = closeEnhanced(this.extensionID)
     }
