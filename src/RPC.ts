@@ -2,7 +2,6 @@
 import { AsyncCall } from '@holoflows/kit/es'
 import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/LocalMessages'
 import { InternalMessage, onNormalMessage } from './shims/browser.message'
-import { onWebSocketClose, onWebSocketError, onWebSocketMessage } from './shims/WebSocket'
 
 /** Define Blob type in communicate with remote */
 export type StringOrBlob =
@@ -230,19 +229,6 @@ export interface ThisSideImplementation {
         message: any,
         sender: browser.runtime.MessageSender,
     ): Promise<void>
-
-    /**
-     * @see https://developer.mozilla.org/docs/Web/API/CloseEvent
-     */
-    'websocket.onClose'(websocketID: number, code: number, reason: string, wasClean: boolean): Promise<void>
-    /**
-     * @see https://developer.mozilla.org/docs/Web/API/WebSocket/onerror
-     */
-    'websocket.onError'(websocketID: number, reason: string): Promise<void>
-    /**
-     * @see https://developer.mozilla.org/docs/Web/API/WebSocket/onmessage
-     */
-    'websocket.onMessage'(websocketID: number, data: StringOrBlob): Promise<void>
 }
 
 const key = 'holoflowsjsonrpc'
@@ -302,15 +288,6 @@ const ThisSideImplementation: ThisSideImplementation = {
         } else {
             // ? drop the message
         }
-    },
-    async 'websocket.onClose'(websocketID: number, code: number, reason: string, wasClean: boolean) {
-        onWebSocketClose(websocketID, code, reason, wasClean)
-    },
-    async 'websocket.onError'(websocketID: number, reason: string) {
-        onWebSocketError(websocketID, reason)
-    },
-    async 'websocket.onMessage'(websocketID: number, data: StringOrBlob) {
-        onWebSocketMessage(websocketID, data)
     },
 }
 export const Host = AsyncCall<Host>(ThisSideImplementation as any, {
