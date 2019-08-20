@@ -32,6 +32,7 @@ export function registerWebExtension(
         `in ${environment} mode`,
     )
     if (location.protocol === 'holoflows-extension:') prepareBackgroundAndOptionsPageEnvironment(extensionID, manifest)
+
     try {
         if (environment === 'content script') {
             untilDocumentReady().then(() => LoadContentScript(manifest, extensionID, preloadedResources))
@@ -43,7 +44,7 @@ export function registerWebExtension(
     } catch (e) {
         console.error(e)
     }
-    return registeredWebExtension.get(extensionID)
+    return registeredWebExtension
 }
 
 function untilDocumentReady() {
@@ -131,6 +132,15 @@ function RunInGlobalScope(extensionID: string, src: string) {
 }
 
 async function LoadContentScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
+    if (!registeredWebExtension.has(extensionID)) {
+        const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
+        const ext: WebExtension = {
+            manifest,
+            environment,
+            preloadedResources,
+        }
+        registeredWebExtension.set(extensionID, ext)
+    }
     for (const [index, content] of (manifest.content_scripts || []).entries()) {
         warningNotImplementedItem(content, index)
         if (
@@ -159,15 +169,6 @@ export async function loadContentScript(
         ? registeredWebExtension.get(extensionID)!.preloadedResources
         : {},
 ) {
-    if (!registeredWebExtension.has(extensionID)) {
-        const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
-        const ext: WebExtension = {
-            manifest,
-            environment,
-            preloadedResources,
-        }
-        registeredWebExtension.set(extensionID, ext)
-    }
     const { environment } = registeredWebExtension.get(extensionID)!
     for (const path of content.js || []) {
         const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
