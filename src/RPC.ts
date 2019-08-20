@@ -171,23 +171,6 @@ export interface Host {
         data: StringOrBlob
     }>
     //#endregion
-    //#region // ? WebSocket
-    /**
-     * Create a new WebSocket by Host
-     * @returns A unique ID that represent this WebSocket connection.
-     */
-    'websocket.create'(extensionID: string, url: string): Promise<number>
-    /**
-     * Close the WebSocket
-     * @see https://developer.mozilla.org/docs/Web/API/WebSocket/close
-     */
-    'websocket.close'(extensionID: string, websocketID: number, code: number, reason: string): Promise<void>
-    /**
-     * Send a message to WebSocket
-     * @see https://developer.mozilla.org/docs/Web/API/WebSocket/send
-     */
-    'websocket.send'(extensionID: string, websocketID: number, data: StringOrBlob): Promise<void>
-    //#endregion
 }
 /**
  * This describes what JSONRPC calls that JS side should implement
