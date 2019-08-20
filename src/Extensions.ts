@@ -4,6 +4,7 @@ import { BrowserFactory } from './shims/browser'
 import { createFetch } from './shims/fetch'
 import { enhanceURL } from './shims/URL.create+revokeObjectURL'
 import { openEnhanced, closeEnhanced } from './shims/window.open+close'
+import { getResource, getResourceAsync } from './utils/Resources'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -52,7 +53,11 @@ function untilDocumentReady() {
     })
 }
 
-function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
+async function LoadBackgroundScript(
+    manifest: Manifest,
+    extensionID: string,
+    preloadedResources: Record<string, string>,
+) {
     if (!manifest.background) return
     const { page, scripts } = manifest.background as any
     if (page) return console.warn('[WebExtension] manifest.background.page is not supported yet!')
@@ -65,24 +70,27 @@ function LoadBackgroundScript(manifest: Manifest, extensionID: string, preloaded
             get() {
                 return src.get!.call(this)
             },
-            set(val) {
-                console.log('Loading ', val)
-                if (val in preloadedResources || val.replace(/^\//, '') in preloadedResources) {
-                    RunInGlobalScope(extensionID, preloadedResources[val] || preloadedResources[val.replace(/^\//, '')])
-                    return true
-                }
-                src.set!.call(this, val)
+            set(path) {
+                console.log('Loading ', path)
+                const preloaded = getResource(extensionID, preloadedResources, path)
+                if (preloaded) RunInGlobalScope(extensionID, preloaded)
+                else
+                    getResourceAsync(extensionID, preloadedResources, path)
+                        .then(code => code || Promise.reject<string>('Loading resource failed'))
+                        .then(code => RunInGlobalScope(extensionID, code))
+                        .catch(e => console.error(`Failed when loading resource`, path))
+                src.set!.call(this, path)
                 return true
             },
         })
     }
-    prepareBackgroundAndOptionsPageEnvironment(extensionID, manifest)
     for (const path of (scripts as string[]) || []) {
-        if (typeof preloadedResources[path] === 'string') {
+        const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
+        if (preloaded) {
             // ? Run it in global scope.
-            RunInGlobalScope(extensionID, preloadedResources[path])
+            RunInGlobalScope(extensionID, preloaded)
         } else {
-            console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)
+            console.error(`[WebExtension] Background scripts not found for ${manifest.name}: ${path}`)
         }
     }
 }
@@ -162,17 +170,11 @@ export async function loadContentScript(
     }
     const { environment } = registeredWebExtension.get(extensionID)!
     for (const path of content.js || []) {
-        if (typeof preloadedResources[path] === 'string') {
-            environment.evaluate(preloadedResources[path])
+        const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
+        if (preloaded) {
+            environment.evaluate(preloaded)
         } else {
-            console.warn(`[WebExtension] Content scripts preload not found for ${manifest.name}: ${path}`)
-            const url = new URL(path, 'holoflows-extension://' + extensionID + '/')
-            try {
-                const code = await (await fetch(url.toString())).text()
-                environment.evaluate(code)
-            } catch (e) {
-                console.warn(`[WebExtension] Content scripts not found for ${manifest.name}: ${path}`, e)
-            }
+            console.error(`[WebExtension] Content scripts not found for ${manifest.name}: ${path}`)
         }
     }
 }
