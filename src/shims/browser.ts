@@ -111,6 +111,11 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                 ) as Window
             },
         }),
+        permissions: NotImplementedProxy<typeof browser.permissions>({
+            request: async () => true,
+            contains: async () => true,
+            remove: async () => true,
+        }),
     }
     return NotImplementedProxy<browser>(implementation, false)
 }
