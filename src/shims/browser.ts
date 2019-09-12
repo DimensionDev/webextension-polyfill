@@ -219,7 +219,7 @@ function binding<
                 ? ___Return___
                 : 'never rtn'
             : HostReturn
-        const noop = <T>(x?: T) => x
+        const noop = <T>(x?: T) => x as T
         const noopArgs = (...args: any[]) => args
         const hostDefinition: (extensionID: string, ...args: HostArgs) => Promise<HostReturn> = Host[key] as any
         return ((async (...args: BrowserArgs): Promise<BrowserReturn> => {
@@ -227,8 +227,9 @@ function binding<
             const hostArgs = (options.param || noopArgs)(...args) as HostArgs
             // ? execute
             const result = await hostDefinition(extensionID, ...hostArgs)
+            const f = options.returns || (noop as NonNullable<typeof options.returns>)
             // ? Transform host result to WebExtension API result
-            const browserResult = (options.returns || noop)(result, args, hostArgs) as BrowserReturn
+            const browserResult = f(result, args, hostArgs) as BrowserReturn
             return browserResult
         }) as unknown) as (...args: InferArgsResult) => Promise<InferReturnResult>
     }

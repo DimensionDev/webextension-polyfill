@@ -4,6 +4,7 @@
 /dist
 .rpt2_cache
 tsdoc-metadata.json
+tsconfig.tsbuildinfo
 # dependencies
 /node_modules
 /.pnp

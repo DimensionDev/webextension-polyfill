@@ -8,7 +8,13 @@ declare module 'realms-shim' {
         new (): never
         (): never
         makeCompartment<GlobalObject extends object = typeof globalThis>(): Realm<GlobalObject>
-        makeRootRealm<GlobalObject extends object = typeof globalThis>(options?: unknown): Realm<GlobalObject>
+        makeRootRealm<GlobalObject extends object = typeof globalThis>(options?: {
+            transforms: {
+                rewrite: (context: { endowments: unknown; src: string }) => {}
+            }[]
+            sloppyGlobals: boolean
+            shims: unknown[]
+        }): Realm<GlobalObject>
     }
     const Realm: RealmConstructor
     export default Realm
