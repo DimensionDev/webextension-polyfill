@@ -15,15 +15,76 @@ export interface WebExtension {
     preloadedResources: Record<string, string>
 }
 export const registeredWebExtension = new Map<WebExtensionID, WebExtension>()
+enum Environment {
+    contentScript,
+    backgroundScript,
+    pageAction,
+    optionsPage,
+}
 export function registerWebExtension(
     extensionID: string,
     manifest: Manifest,
     preloadedResources: Record<string, string> = {},
 ) {
-    const environment: 'content script' | 'background script' =
-        location.href.startsWith('holoflows-extension://') && location.href.endsWith('_generated_background_page.html')
-            ? 'background script'
-            : 'content script'
+    let environment: Environment = getContext(manifest, extensionID, preloadedResources)
+    try {
+        switch (environment) {
+            case Environment.optionsPage:
+                prepareExtensionProtocolEnvironment(extensionID, manifest)
+                break
+            case Environment.pageAction:
+                prepareExtensionProtocolEnvironment(extensionID, manifest)
+                break
+            case Environment.backgroundScript:
+                prepareExtensionProtocolEnvironment(extensionID, manifest)
+                untilDocumentReady().then(() => LoadBackgroundScript(manifest, extensionID, preloadedResources))
+                break
+            case Environment.contentScript:
+                untilDocumentReady().then(() => LoadContentScript(manifest, extensionID, preloadedResources))
+                break
+            default:
+                console.warn(`[WebExtension] unknown running environment ${environment}`)
+        }
+    } catch (e) {
+        console.error(e)
+    }
+    return registeredWebExtension
+}
+
+function getContext(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
+    let environment: Environment
+    if (location.protocol === 'holoflows-extension:') {
+        if (location.pathname === '/_generated_background_page.html') {
+            environment = Environment.backgroundScript
+        } else if (
+            manifest.background &&
+            manifest.background.page &&
+            location.pathname === '/' + manifest.background.page
+        ) {
+            environment = Environment.backgroundScript
+        } else if (
+            manifest.page_action &&
+            manifest.page_action.default_popup &&
+            location.pathname === '/' + manifest.page_action.default_popup
+        ) {
+            environment = Environment.pageAction
+        } else environment = Environment.optionsPage
+    } else if (location.hostname === 'localhost') {
+        // debug usage
+        const param = new URL(location.href)
+        const type = param.searchParams.get('type')
+        if (type === 'b') environment = Environment.backgroundScript
+        else if (type === 'c') environment = Environment.contentScript
+        else if (type === 'p') environment = Environment.pageAction
+        else if (type === 'o') environment = Environment.optionsPage
+        else
+            throw new TypeError(
+                'To debug, ?type= must be one of (b)ackground, (c)ontent-script, (p)age-action-popup, (o)ptions-page, found ' +
+                    type,
+            )
+    } else {
+        environment = Environment.contentScript
+    }
     console.debug(
         `[WebExtension] Loading extension ${manifest.name}(${extensionID}) with manifest`,
         manifest,
@@ -31,20 +92,7 @@ export function registerWebExtension(
         preloadedResources,
         `in ${environment} mode`,
     )
-    if (location.protocol === 'holoflows-extension:') prepareBackgroundAndOptionsPageEnvironment(extensionID, manifest)
-
-    try {
-        if (environment === 'content script') {
-            untilDocumentReady().then(() => LoadContentScript(manifest, extensionID, preloadedResources))
-        } else if (environment === 'background script') {
-            untilDocumentReady().then(() => LoadBackgroundScript(manifest, extensionID, preloadedResources))
-        } else {
-            console.warn(`[WebExtension] unknown running environment ${environment}`)
-        }
-    } catch (e) {
-        console.error(e)
-    }
-    return registeredWebExtension
+    return environment
 }
 
 function untilDocumentReady() {
@@ -61,7 +109,33 @@ async function LoadBackgroundScript(
 ) {
     if (!manifest.background) return
     const { page, scripts } = manifest.background as any
-    if (page) return console.warn('[WebExtension] manifest.background.page is not supported yet!')
+    if (page) {
+        if (scripts && scripts.length)
+            throw new TypeError(`In the manifest, you can't have both "page" and "scripts" for background field!`)
+        const pageURL = new URL(page, location.origin)
+        if (pageURL.origin !== location.origin)
+            throw new TypeError(`You can not specify a foreign origin for the background page`)
+        const html = await getResourceAsync(extensionID, preloadedResources, page)
+        if (!html) throw new TypeError('Cannot find background page.')
+        if (location.hostname === 'localhost') {
+            const parser = new DOMParser()
+            const dom = parser.parseFromString(html, 'text/html')
+            const scripts = await Promise.all(
+                Array.from(dom.querySelectorAll('script')).map(async script => {
+                    const path = new URL(script.src).pathname
+                    script.remove()
+                    return [path, await getResourceAsync(extensionID, preloadedResources, path)]
+                }),
+            )
+            document.write(new XMLSerializer().serializeToString(dom))
+            for (const [path, script] of scripts) {
+                if (script) RunInGlobalScope(extensionID, script)
+                else console.error('Resource', path, 'not found')
+            }
+        } else {
+            document.write(html)
+        }
+    }
     if (location.hostname !== 'localhost' && !location.href.startsWith('holoflows-extension://')) {
         throw new TypeError(`Background script only allowed in localhost(for debugging) and holoflows-extension://`)
     }
@@ -95,7 +169,7 @@ async function LoadBackgroundScript(
         }
     }
 }
-function prepareBackgroundAndOptionsPageEnvironment(extensionID: string, manifest: Manifest) {
+function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Manifest) {
     Object.assign(window, {
         browser: BrowserFactory(extensionID, manifest),
         fetch: createFetch(extensionID, window.fetch),
@@ -105,19 +179,16 @@ function prepareBackgroundAndOptionsPageEnvironment(extensionID: string, manifes
     } as Partial<typeof globalThis>)
 }
 
-function RunInGlobalScope(extensionID: string, src: string): void {
+function RunInGlobalScope(extensionID: string, source: string): void {
     if (location.protocol === 'holoflows-extension:') {
-        const likeESModule = src.match('import ') || src.match('export ')
+        const likeESModule = source.match('import') || source.match('export ')
         const script = document.createElement('script')
         script.type = likeESModule ? 'module' : 'text/javascript'
-        script.src = src
+        script.innerText = source
         return
-        // return new Function(src)()
     }
-    console.warn(
-        '[Deprecation] This script should run in the holoflows-extension:// scheme, in the future version, it will throw instead of a warning',
-    )
-    const f = new Function(`with (
+    if (source.indexOf('browser')) {
+        const f = new Function(`with (
                 new Proxy(window, {
                     get(target, key) {
                         if (key === 'location')
@@ -136,9 +207,12 @@ function RunInGlobalScope(extensionID: string, src: string): void {
                     }
                 }
             )) {
-                ${src}
+                ${source}
               }`)
-    f()
+        f()
+    } else {
+        eval(source)
+    }
 }
 
 async function LoadContentScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {

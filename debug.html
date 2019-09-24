@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+        <style>
+            * {
+                margin-bottom: 0.6em;
+            }
+            body {
+                background: black;
+                color: white;
+                font-family: system-ui;
+            }
+            a {
+                color: white;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            To debug WebExtension polyfill, run the code below.
+            <br />
+            <input readonly value="npx serve ." />
+            <br />
+            Then put your WebExtension at /extension/
+            <br />
+            Then let's choose the environment.
+            <br />
+            I want this page to be a ...
+            <ul>
+                <li>
+                    <a href="?type=b">background page</a>
+                </li>
+                <li>
+                    <a href="?type=c">content script</a>
+                </li>
+                <li>
+                    <a href="?type=p">page-action popup page</a>
+                </li>
+                <li>
+                    <a href="?type=o">options page</a>
+                </li>
+            </ul>
+        </div>
+        <script src="./dist/out.js"></script>
+    </body>
+</html>

@@ -1,9 +1,24 @@
 import { registerWebExtension } from './Extensions'
-const env =
-    location.href.startsWith('holoflows-extension://') && location.href.endsWith('_generated_background_page.html')
+import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
 // ## Inject here
-// ? to avoid registerWebExtension omitted by rollup
-registerWebExtension.toString()
+
+if (location.hostname) {
+    fetch('/extension/manifest.json')
+        .then(x => x.text())
+        .then(x => {
+            console.log('Loading test WebExtension')
+            Object.assign({
+                a: registerWebExtension,
+                b: WebExtensionContentScriptEnvironment,
+                c: registerWebExtension(
+                    Math.random()
+                        .toString(36)
+                        .slice(2),
+                    JSON.parse(x),
+                ),
+            })
+        })
+}
 
 /**
  * registerWebExtension(

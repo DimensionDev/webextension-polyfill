@@ -6,6 +6,12 @@ export function createFetch(extensionID: string, origFetch: typeof fetch): typeo
         async apply(target, thisArg, [requestInfo, requestInit]: Parameters<typeof fetch>) {
             const { method, url } = new Request(requestInfo, requestInit)
             if (url.startsWith('holoflows-extension://' + extensionID + '/')) {
+                const u = new URL(url)
+                if (u.protocol === 'holoflows-extension:' && location.hostname === 'localhost') {
+                    const redir = u.pathname.replace('//' + extensionID + '/', '/extension/') + u.search
+                    console.debug('fetching', requestInfo, 'redirecting to', redir)
+                    return origFetch(redir, requestInit)
+                }
                 return origFetch(requestInfo, requestInit)
             } else {
                 const result = await Host.fetch(extensionID, { method, url })
