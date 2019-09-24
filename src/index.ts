@@ -10,12 +10,7 @@ if (location.hostname) {
             Object.assign({
                 a: registerWebExtension,
                 b: WebExtensionContentScriptEnvironment,
-                c: registerWebExtension(
-                    Math.random()
-                        .toString(36)
-                        .slice(2),
-                    JSON.parse(x),
-                ),
+                c: registerWebExtension('aaaaaaaaaaaaaaaaaaaaaaaaa', JSON.parse(x)),
             })
         })
 }

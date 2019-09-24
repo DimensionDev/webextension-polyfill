@@ -3,7 +3,9 @@ import { createEventListener } from '../utils/LocalMessages'
 import { createRuntimeSendMessage, sendMessageWithResponse } from './browser.message'
 import { Manifest } from '../Extensions'
 import { getIDFromBlobURL } from './URL.create+revokeObjectURL'
+import { modifyInternalStorage } from '../internal'
 
+const originalConfirm = window.confirm
 /**
  * Create a new `browser` object.
  * @param extensionID - Extension ID
@@ -114,9 +116,51 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
             },
         }),
         permissions: NotImplementedProxy<typeof browser.permissions>({
-            request: async () => true,
-            contains: async () => true,
-            remove: async () => true,
+            request: async req => {
+                const userAction = originalConfirm(`${manifest.name} is going to request the following permissions:
+${(req.permissions || []).join('\n')}
+${(req.origins || []).join('\n')}`)
+                if (userAction) {
+                    modifyInternalStorage(extensionID, obj => {
+                        const orig = obj.dynamicRequestedPermissions || { origins: [], permissions: [] }
+                        const o = new Set(orig.origins)
+                        const p = new Set(orig.permissions)
+                        ;(req.origins || []).forEach(x => o.add(x))
+                        ;(req.permissions || []).forEach(x => p.add(x))
+                        orig.origins = Array.from(o)
+                        orig.permissions = Array.from(p)
+                        obj.dynamicRequestedPermissions = orig
+                    })
+                }
+                return userAction
+            },
+            contains: async query => {
+                const originsQuery = query.origins || []
+                const permissionsQuery = query.permissions || []
+                const requested = await modifyInternalStorage(extensionID)
+                const hasOrigins = new Set<string>()
+                const hasPermissions = new Set<string>()
+                if (requested.dynamicRequestedPermissions && requested.dynamicRequestedPermissions.origins) {
+                    requested.dynamicRequestedPermissions.origins.forEach(x => hasOrigins.add(x))
+                }
+                if (requested.dynamicRequestedPermissions && requested.dynamicRequestedPermissions.permissions) {
+                    requested.dynamicRequestedPermissions.permissions.forEach(x => hasPermissions.add(x))
+                }
+                // permissions does not distinguish permission or url
+                ;(manifest.permissions || []).forEach(x => hasPermissions.add(x))
+                ;(manifest.permissions || []).forEach(x => hasOrigins.add(x))
+                if (originsQuery.some(x => !hasOrigins.has(x))) return false
+                if (permissionsQuery.some(x => !hasPermissions.has(x))) return false
+                return true
+            },
+            remove: async () => {
+                console.warn('🤣 why you want to revoke your permissions? Not implemented yet.')
+                return false
+            },
+            getAll: async () => {
+                const all = await modifyInternalStorage(extensionID)
+                return JSON.parse(JSON.stringify(all.dynamicRequestedPermissions || {}))
+            },
         }),
     }
     return NotImplementedProxy<browser>(implementation, false)
