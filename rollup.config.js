@@ -1,8 +1,12 @@
 import typescript from 'rollup-plugin-typescript2'
 import commonjs from 'rollup-plugin-commonjs'
 import nodeResolve from 'rollup-plugin-node-resolve'
-import { string } from 'rollup-plugin-string'
 import * as Rollup from 'rollup'
+
+const buildIgnore = ['vm']
+const devIgnore = ['vm', '@microsoft/typescript-etw', 'fs', 'path', 'os', 'crypto', 'buffer', 'source-map-support']
+
+const isDev = process.argv.join(' ').indexOf('-w') !== -1
 
 /** @type {Rollup.RollupOptions} */
 const config = {
@@ -12,6 +16,8 @@ const config = {
         format: 'iife',
         sourcemap: 'inline',
     },
+    // In dev mode, bundle a typescript is too slow
+    external: isDev ? ['typescript', 'realms-shim', '@holoflows/kit/es'] : undefined,
     plugins: [
         nodeResolve({
             browser: true,
@@ -25,7 +31,7 @@ const config = {
             namedExports: {
                 'node_modules/@holoflows/kit/node_modules/events/events.js': ['EventEmitter'],
             },
-            ignore: ['vm', '@microsoft/typescript-etw', 'fs', 'path', 'os', 'crypto', 'buffer', 'source-map-support'],
+            ignore: isDev ? devIgnore : buildIgnore,
             sourceMap: true,
         }),
     ],

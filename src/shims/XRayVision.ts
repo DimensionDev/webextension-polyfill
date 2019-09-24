@@ -13,7 +13,7 @@
  * - [ ] ContentScript modification on DOM prototype is not discoverable by main thread
  * - [ ] Main thread modification on DOM prototype is not discoverable by ContentScript
  */
-import RealmConstructor, { Realm } from 'realms-shim'
+import Realm, { Realm as RealmInstance } from 'realms-shim'
 
 import { BrowserFactory } from './browser'
 import { Manifest } from '../Extensions'
@@ -81,8 +81,9 @@ const PrepareWebAPIs = (() => {
 /**
  * Execution environment of ContentScript
  */
-export class WebExtensionContentScriptEnvironment implements Realm<typeof globalThis & { browser: typeof browser }> {
-    private realm = RealmConstructor.makeRootRealm({
+export class WebExtensionContentScriptEnvironment
+    implements RealmInstance<typeof globalThis & { browser: typeof browser }> {
+    private realm = Realm.makeRootRealm({
         sloppyGlobals: true,
         transforms: [
             {
