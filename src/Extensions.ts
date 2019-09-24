@@ -105,8 +105,18 @@ function prepareBackgroundAndOptionsPageEnvironment(extensionID: string, manifes
     } as Partial<typeof globalThis>)
 }
 
-function RunInGlobalScope(extensionID: string, src: string) {
-    if (location.protocol === 'holoflows-extension:') return new Function(src)()
+function RunInGlobalScope(extensionID: string, src: string): void {
+    if (location.protocol === 'holoflows-extension:') {
+        const likeESModule = src.match('import ') || src.match('export ')
+        const script = document.createElement('script')
+        script.type = likeESModule ? 'module' : 'text/javascript'
+        script.src = src
+        return
+        // return new Function(src)()
+    }
+    console.warn(
+        '[Deprecation] This script should run in the holoflows-extension:// scheme, in the future version, it will throw instead of a warning',
+    )
     const f = new Function(`with (
                 new Proxy(window, {
                     get(target, key) {

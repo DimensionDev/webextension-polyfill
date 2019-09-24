@@ -4,7 +4,7 @@ import nodeResolve from 'rollup-plugin-node-resolve'
 import { string } from 'rollup-plugin-string'
 import * as Rollup from 'rollup'
 
-/** @type {Rollup.OutputOptions & Rollup.InputOptions} */
+/** @type {Rollup.RollupOptions} */
 const config = {
     input: './src/index.ts',
     output: {
@@ -13,9 +13,6 @@ const config = {
         sourcemap: 'inline',
     },
     plugins: [
-        string({
-            include: ['./src/extension/**/*.*'],
-        }),
         nodeResolve({
             browser: true,
             preferBuiltins: false,
@@ -28,7 +25,7 @@ const config = {
             namedExports: {
                 'node_modules/@holoflows/kit/node_modules/events/events.js': ['EventEmitter'],
             },
-            ignore: ['vm'],
+            ignore: ['vm', '@microsoft/typescript-etw', 'fs', 'path', 'os', 'crypto', 'buffer', 'source-map-support'],
             sourceMap: true,
         }),
     ],

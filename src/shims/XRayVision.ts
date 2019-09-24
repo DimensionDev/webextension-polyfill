@@ -20,6 +20,7 @@ import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
 import { createFetch } from './fetch'
 import { openEnhanced, closeEnhanced } from './window.open+close'
+import { transformAST } from '../transformers'
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -81,7 +82,17 @@ const PrepareWebAPIs = (() => {
  * Execution environment of ContentScript
  */
 export class WebExtensionContentScriptEnvironment implements Realm<typeof globalThis & { browser: typeof browser }> {
-    private realm = RealmConstructor.makeRootRealm()
+    private realm = RealmConstructor.makeRootRealm({
+        sloppyGlobals: true,
+        transforms: [
+            {
+                rewrite: ctx => {
+                    ctx.src = transformAST(ctx.src)
+                    return ctx
+                },
+            },
+        ],
+    })
     get global() {
         return this.realm.global
     }
