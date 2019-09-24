@@ -216,7 +216,7 @@ export interface ThisSideImplementation {
 }
 
 const key = 'holoflowsjsonrpc'
-const isDebug = location.href === 'http://localhost:5000/'
+const isDebug = location.hostname === 'localhost'
 class iOSWebkitChannel {
     constructor() {
         document.addEventListener(key, e => {

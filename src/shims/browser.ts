@@ -3,6 +3,7 @@ import { createEventListener } from '../utils/LocalMessages'
 import { createRuntimeSendMessage, sendMessageWithResponse } from './browser.message'
 import { Manifest } from '../Extensions'
 import { getIDFromBlobURL } from './URL.create+revokeObjectURL'
+
 /**
  * Create a new `browser` object.
  * @param extensionID - Extension ID
@@ -35,6 +36,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
             },
             onMessage: createEventListener(extensionID, 'browser.runtime.onMessage'),
             sendMessage: createRuntimeSendMessage(extensionID),
+            onInstalled: createEventListener(extensionID, 'browser.runtime.onInstall'),
         }),
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {

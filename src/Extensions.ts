@@ -5,6 +5,8 @@ import { createFetch } from './shims/fetch'
 import { enhanceURL } from './shims/URL.create+revokeObjectURL'
 import { openEnhanced, closeEnhanced } from './shims/window.open+close'
 import { getResource, getResourceAsync } from './utils/Resources'
+import { EventPools } from './utils/LocalMessages'
+import { reservedID, modifyInternalStorage } from './internal'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -16,16 +18,18 @@ export interface WebExtension {
 }
 export const registeredWebExtension = new Map<WebExtensionID, WebExtension>()
 enum Environment {
-    contentScript,
-    backgroundScript,
-    pageAction,
-    optionsPage,
+    contentScript = 'Content script',
+    backgroundScript = 'Background script',
+    pageAction = 'Popup action',
+    optionsPage = 'Options page',
 }
-export function registerWebExtension(
+export async function registerWebExtension(
     extensionID: string,
     manifest: Manifest,
     preloadedResources: Record<string, string> = {},
 ) {
+    if (extensionID === reservedID)
+        throw new TypeError('You cannot use reserved id ' + reservedID + ' as the extension id')
     let environment: Environment = getContext(manifest, extensionID, preloadedResources)
     try {
         switch (environment) {
@@ -37,16 +41,36 @@ export function registerWebExtension(
                 break
             case Environment.backgroundScript:
                 prepareExtensionProtocolEnvironment(extensionID, manifest)
-                untilDocumentReady().then(() => LoadBackgroundScript(manifest, extensionID, preloadedResources))
+                await untilDocumentReady()
+                await LoadBackgroundScript(manifest, extensionID, preloadedResources)
                 break
             case Environment.contentScript:
-                untilDocumentReady().then(() => LoadContentScript(manifest, extensionID, preloadedResources))
+                await untilDocumentReady()
+                await LoadContentScript(manifest, extensionID, preloadedResources)
                 break
             default:
                 console.warn(`[WebExtension] unknown running environment ${environment}`)
         }
     } catch (e) {
         console.error(e)
+    }
+    if (environment === Environment.backgroundScript) {
+        const installHandler = EventPools['browser.runtime.onInstall'].get(extensionID)
+        if (installHandler) {
+            setTimeout(() => {
+                modifyInternalStorage(extensionID, o => {
+                    const handlers = Array.from(installHandler.values()) as callback[]
+                    type callback = typeof browser.runtime.onInstalled.addListener extends ((...args: infer T) => any)
+                        ? T[0]
+                        : never
+                    ;[]
+                    if (o.previousVersion)
+                        handlers.forEach(x => x({ previousVersion: o.previousVersion, reason: 'update' }))
+                    else handlers.forEach(x => x({ reason: 'install' }))
+                    o.previousVersion = manifest.version
+                })
+            }, 2000)
+        }
     }
     return registeredWebExtension
 }
