@@ -6,7 +6,8 @@ import { enhanceURL } from './shims/URL.create+revokeObjectURL'
 import { openEnhanced, closeEnhanced } from './shims/window.open+close'
 import { getResource, getResourceAsync } from './utils/Resources'
 import { EventPools } from './utils/LocalMessages'
-import { reservedID, modifyInternalStorage } from './internal'
+import { reservedID, useInternalStorage } from './internal'
+import { isDebug } from './debugger/isDebugMode'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -58,7 +59,7 @@ export async function registerWebExtension(
         const installHandler = EventPools['browser.runtime.onInstall'].get(extensionID)
         if (installHandler) {
             setTimeout(() => {
-                modifyInternalStorage(extensionID, o => {
+                useInternalStorage(extensionID, o => {
                     const handlers = Array.from(installHandler.values()) as callback[]
                     type callback = typeof browser.runtime.onInstalled.addListener extends ((...args: infer T) => any)
                         ? T[0]
@@ -93,7 +94,7 @@ function getContext(manifest: Manifest, extensionID: string, preloadedResources:
         ) {
             environment = Environment.pageAction
         } else environment = Environment.optionsPage
-    } else if (location.hostname === 'localhost') {
+    } else if (isDebug) {
         // debug usage
         const param = new URL(location.href)
         const type = param.searchParams.get('type')
@@ -132,6 +133,9 @@ async function LoadBackgroundScript(
     preloadedResources: Record<string, string>,
 ) {
     if (!manifest.background) return
+    if (!isDebug && location.protocol !== 'holoflows-extension:') {
+        throw new TypeError(`Background script only allowed in localhost(for debugging) and holoflows-extension://`)
+    }
     const { page, scripts } = manifest.background as any
     if (page) {
         if (scripts && scripts.length)
@@ -141,7 +145,7 @@ async function LoadBackgroundScript(
             throw new TypeError(`You can not specify a foreign origin for the background page`)
         const html = await getResourceAsync(extensionID, preloadedResources, page)
         if (!html) throw new TypeError('Cannot find background page.')
-        if (location.hostname === 'localhost') {
+        if (isDebug) {
             const parser = new DOMParser()
             const dom = parser.parseFromString(html, 'text/html')
             const scripts = await Promise.all(
@@ -156,12 +160,14 @@ async function LoadBackgroundScript(
                 if (script) RunInGlobalScope(extensionID, script)
                 else console.error('Resource', path, 'not found')
             }
+            const div = document.createElement('div')
+            div.innerHTML = `<style>body{background: black; color: white;font-family: system-ui;}</style>
+            This page is in the debug mode of webextension-polyfill<br />
+            It's running in the background page mode`
+            document.body.appendChild(div)
         } else {
             document.write(html)
         }
-    }
-    if (location.hostname !== 'localhost' && !location.href.startsWith('holoflows-extension://')) {
-        throw new TypeError(`Background script only allowed in localhost(for debugging) and holoflows-extension://`)
     }
     {
         const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!

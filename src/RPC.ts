@@ -3,6 +3,7 @@ import { AsyncCall } from '@holoflows/kit/es'
 import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/LocalMessages'
 import { InternalMessage, onNormalMessage } from './shims/browser.message'
 import { registeredWebExtension, loadContentScript } from './Extensions'
+import { isDebug } from './debugger/isDebugMode'
 
 /** Define Blob type in communicate with remote */
 export type StringOrBlob =
@@ -216,7 +217,6 @@ export interface ThisSideImplementation {
 }
 
 const key = 'holoflowsjsonrpc'
-const isDebug = location.hostname === 'localhost'
 class iOSWebkitChannel {
     constructor() {
         document.addEventListener(key, e => {
@@ -235,21 +235,30 @@ class iOSWebkitChannel {
     emit(_: string, data: any): void {
         if (isDebug) {
             console.log('send', data)
-            Object.assign(window, {
-                response: (response: any) =>
-                    document.dispatchEvent(
-                        new CustomEvent<any>(key, {
-                            detail: {
-                                jsonrpc: '2.0',
-                                id: data.id,
-                                result: response,
-                            },
-                        }),
-                    ),
-            })
         }
         if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[key])
             window.webkit.messageHandlers[key].postMessage(data)
+    }
+}
+
+export class SamePageDebugChannel {
+    static target = document.createElement('a')
+    constructor() {
+        SamePageDebugChannel.target.addEventListener('targetEventChannel', e => {
+            const detail = (e as CustomEvent).detail
+            for (const f of this.listener) {
+                try {
+                    f(detail)
+                } catch {}
+            }
+        })
+    }
+    private listener: Array<(data: unknown) => void> = []
+    on(_: string, cb: (data: any) => void): void {
+        this.listener.push(cb)
+    }
+    emit(_: string, data: any): void {
+        SamePageDebugChannel.target.dispatchEvent(new CustomEvent('targetEventChannel', { detail: data }))
     }
 }
 export const ThisSideImplementation: ThisSideImplementation = {
@@ -293,5 +302,5 @@ export const ThisSideImplementation: ThisSideImplementation = {
 export const Host = AsyncCall<Host>(ThisSideImplementation as any, {
     key: '',
     log: false,
-    messageChannel: new iOSWebkitChannel(),
+    messageChannel: isDebug ? new SamePageDebugChannel() : new iOSWebkitChannel(),
 })

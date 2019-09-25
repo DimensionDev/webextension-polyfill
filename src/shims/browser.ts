@@ -3,7 +3,7 @@ import { createEventListener } from '../utils/LocalMessages'
 import { createRuntimeSendMessage, sendMessageWithResponse } from './browser.message'
 import { Manifest } from '../Extensions'
 import { getIDFromBlobURL } from './URL.create+revokeObjectURL'
-import { modifyInternalStorage } from '../internal'
+import { useInternalStorage } from '../internal'
 
 const originalConfirm = window.confirm
 /**
@@ -121,7 +121,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
 ${(req.permissions || []).join('\n')}
 ${(req.origins || []).join('\n')}`)
                 if (userAction) {
-                    modifyInternalStorage(extensionID, obj => {
+                    useInternalStorage(extensionID, obj => {
                         const orig = obj.dynamicRequestedPermissions || { origins: [], permissions: [] }
                         const o = new Set(orig.origins)
                         const p = new Set(orig.permissions)
@@ -137,7 +137,7 @@ ${(req.origins || []).join('\n')}`)
             contains: async query => {
                 const originsQuery = query.origins || []
                 const permissionsQuery = query.permissions || []
-                const requested = await modifyInternalStorage(extensionID)
+                const requested = await useInternalStorage(extensionID)
                 const hasOrigins = new Set<string>()
                 const hasPermissions = new Set<string>()
                 if (requested.dynamicRequestedPermissions && requested.dynamicRequestedPermissions.origins) {
@@ -158,7 +158,7 @@ ${(req.origins || []).join('\n')}`)
                 return false
             },
             getAll: async () => {
-                const all = await modifyInternalStorage(extensionID)
+                const all = await useInternalStorage(extensionID)
                 return JSON.parse(JSON.stringify(all.dynamicRequestedPermissions || {}))
             },
         }),

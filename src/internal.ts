@@ -1,13 +1,14 @@
 import { Host } from './RPC'
+import { isDebug } from './debugger/isDebugMode'
 /**
  * This ID is used by this polyfill itself.
  */
 export const reservedID = '150ea6ee-2b0a-4587-9879-0ca5dfc1d046'
-export async function modifyInternalStorage(
+export async function useInternalStorage(
     extensionID: string,
     modify?: (obj: InternalStorage) => void,
 ): Promise<InternalStorage> {
-    if (location.hostname === 'localhost') {
+    if (isDebug) {
         const obj = JSON.parse(localStorage.getItem(reservedID + ':' + extensionID) || '{}')
         if (!modify) return Promise.resolve(obj)
         modify(obj)
@@ -20,8 +21,8 @@ export async function modifyInternalStorage(
     Host['browser.storage.local.set'](reservedID, { [extensionID]: obj })
     return obj
 }
-export async function modifyGlobalInternalStorage(extensionID: string, modify: (obj: GlobalStorage) => void) {
-    if (location.hostname === 'localhost') {
+export async function useGlobalInternalStorage(extensionID: string, modify: (obj: GlobalStorage) => void) {
+    if (isDebug) {
         const obj = JSON.parse(localStorage.getItem(reservedID + ':' + reservedID) || '{}')
         modify(obj)
         localStorage.setItem(reservedID + ':' + reservedID, JSON.stringify(obj))
@@ -41,5 +42,10 @@ interface InternalStorage {
         origins: string[]
         permissions: string[]
     }
+    /**
+     * This storage is used to emulate `browser.storage.local.*`
+     * in localhost debugging
+     */
+    debugModeStorage?: any
 }
 interface GlobalStorage {}
