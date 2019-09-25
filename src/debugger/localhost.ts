@@ -3,15 +3,18 @@ import { Host, ThisSideImplementation, SamePageDebugChannel } from '../RPC'
 import { useInternalStorage } from '../internal'
 import { getResourceAsync } from '../utils/Resources'
 import { isDebug } from './isDebugMode'
+import { debugModeURLRewrite } from './url-rewrite'
 
-const log: <T>(rt?: T) => (...args: any[]) => T = rt => (...args) => {
+const log: <T>(rt: T) => (...args: any[]) => Promise<T> = rt => async (...args) => {
     console.log('Mocked Host', ...args)
     return rt!
 }
 
 class CrossPageDebugChannel {
+    broadcast = new BroadcastChannel('webext-polyfill-debug')
     constructor() {
-        window.addEventListener('message', e => {
+        this.broadcast.addEventListener('message', e => {
+            if (e.origin !== location.origin) console.warn(e.origin, location.origin)
             const detail = e.data
             for (const f of this.listener) {
                 try {
@@ -25,7 +28,7 @@ class CrossPageDebugChannel {
         this.listener.push(cb)
     }
     emit(_: string, data: any): void {
-        window.postMessage(data, location.origin)
+        this.broadcast.postMessage(data)
     }
 }
 
@@ -36,43 +39,51 @@ if (isDebug) {
         } as { onMessage: ThisSideImplementation['onMessage'] },
         {
             key: 'mock',
-            log: true,
+            log: false,
             messageChannel: new CrossPageDebugChannel(),
         },
     )
     const host: Host = {
-        'URL.createObjectURL': log(),
-        'URL.revokeObjectURL': log(),
-        'browser.downloads.download': log(),
+        'URL.createObjectURL': log(void 0),
+        'URL.revokeObjectURL': log(void 0),
+        'browser.downloads.download': log(void 0),
         async sendMessage(e, t, tt, m, mm) {
             mockHost.onMessage(e, t, m, mm, { id: new URLSearchParams(location.search).get('id')! })
         },
-        'browser.storage.local.clear': log(),
-        async 'browser.storage.local.get'(e, k) {
-            return (await useInternalStorage(e)).debugModeStorage || {}
+        'browser.storage.local.clear': log(void 0),
+        async 'browser.storage.local.get'(extensionID, k) {
+            return (await useInternalStorage(extensionID)).debugModeStorage || {}
         },
-        'browser.storage.local.remove': log(),
-        async 'browser.storage.local.set'(e, d) {
-            useInternalStorage(e, o => (o.debugModeStorage = Object.assign({}, o.debugModeStorage, d)))
+        'browser.storage.local.remove': log(void 0),
+        async 'browser.storage.local.set'(extensionID, d) {
+            useInternalStorage(extensionID, o => (o.debugModeStorage = Object.assign({}, o.debugModeStorage, d)))
         },
-        async 'browser.tabs.create'(e, o) {
-            if (!o.url) throw new TypeError('need a url')
+        async 'browser.tabs.create'(extensionID, options) {
+            if (!options.url) throw new TypeError('need a url')
             const a = document.createElement('a')
-            a.href = o.url
+            a.href = debugModeURLRewrite(extensionID, options.url)
+            const param = new URLSearchParams()
+            param.set('url', options.url)
+            param.set('type', options.url.startsWith('holoflows-extension://') ? 'p' : 'm')
+            a.href = '/debug?' + param
+            a.innerText = 'browser.tabs.create: ' + options.url
+            a.target = '_blank'
+            a.style.color = 'white'
+            document.body.appendChild(a)
             return { id: Math.random() } as any
         },
-        'browser.tabs.query': log(),
-        'browser.tabs.remove': log(),
-        'browser.tabs.update': log(),
-        async fetch(e, r) {
-            const h = await getResourceAsync(e, {}, r.url)
+        'browser.tabs.query': log([]),
+        'browser.tabs.remove': log(void 0),
+        'browser.tabs.update': log({} as browser.tabs.Tab),
+        async fetch(extensionID, r) {
+            const h = await getResourceAsync(extensionID, {}, r.url)
             if (h) return { data: { content: h, mimeType: '', type: 'text' }, status: 200, statusText: 'ok' }
             return { data: { content: '', mimeType: '', type: 'text' }, status: 404, statusText: 'Not found' }
         },
     }
     AsyncCall(host, {
         key: '',
-        log: true,
+        log: false,
         messageChannel: new SamePageDebugChannel(),
     })
 }

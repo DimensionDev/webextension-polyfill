@@ -11,21 +11,25 @@
             var es = HoloflowsKit
         </script>
         <style>
-            * {
+            #WebExtension * {
                 margin-bottom: 0.6em;
             }
-            body {
+            #WebExtension {
                 background: black;
                 color: white;
                 font-family: system-ui;
+                min-width: 100vw;
+                min-height: 100vh;
+                padding: 2em;
+                font-size: 1.5em;
             }
-            a {
+            #WebExtension a {
                 color: white;
             }
         </style>
     </head>
     <body>
-        <div>
+        <div id="WebExtension">
             To debug WebExtension polyfill, run the code below.
             <br />
             <input readonly value="npx serve ." />
@@ -42,13 +46,14 @@
                     <a href="?type=b">background page</a>
                 </li>
                 <li>
-                    <a href="?type=c">content script</a>
+                    <a href="?type=p&url=_options_">options page</a>
                 </li>
                 <li>
-                    <a href="?type=p">page-action popup page</a>
+                    <a href="?type=p&url=_popup_">popup page</a>
                 </li>
                 <li>
-                    <a href="?type=o">options page</a>
+                    <input id="url" type="url" placeholder="https://example.com" />
+                    <button onclick="window.open(`/debug?type=m&url=${url.value}`)">emulated content script</button>
                 </li>
             </ul>
         </div>

@@ -4,10 +4,12 @@ import { BrowserFactory } from './shims/browser'
 import { createFetch } from './shims/fetch'
 import { enhanceURL } from './shims/URL.create+revokeObjectURL'
 import { openEnhanced, closeEnhanced } from './shims/window.open+close'
-import { getResource, getResourceAsync } from './utils/Resources'
+import { getResourceAsync } from './utils/Resources'
 import { EventPools } from './utils/LocalMessages'
 import { reservedID, useInternalStorage } from './internal'
 import { isDebug } from './debugger/isDebugMode'
+import { writeHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
+import { rewriteWorker } from './hijacks/Worker.prototype.constructor'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -21,8 +23,8 @@ export const registeredWebExtension = new Map<WebExtensionID, WebExtension>()
 enum Environment {
     contentScript = 'Content script',
     backgroundScript = 'Background script',
-    pageAction = 'Popup action',
-    optionsPage = 'Options page',
+    protocolPage = 'Protocol page',
+    debugModeManagedPage = 'managed page',
 }
 export async function registerWebExtension(
     extensionID: string,
@@ -34,11 +36,26 @@ export async function registerWebExtension(
     let environment: Environment = getContext(manifest, extensionID, preloadedResources)
     try {
         switch (environment) {
-            case Environment.optionsPage:
-                prepareExtensionProtocolEnvironment(extensionID, manifest)
+            case Environment.debugModeManagedPage:
+                if (!isDebug) throw new TypeError('Invalid state')
+                // TODO: fake a url.
+                LoadContentScript(manifest, extensionID, preloadedResources)
                 break
-            case Environment.pageAction:
+            case Environment.protocolPage:
                 prepareExtensionProtocolEnvironment(extensionID, manifest)
+                if (isDebug) {
+                    const url = new URL(location.href).searchParams.get('url')
+                    if (!url) throw new TypeError('This page need a "url" search param')
+                    if (url === '_options_') {
+                        LoadProtocolPage(extensionID, preloadedResources, manifest.options_ui!.page)
+                    } else if (url === '_popup_') {
+                        LoadProtocolPage(
+                            extensionID,
+                            preloadedResources,
+                            manifest.page_action!.default_popup!.toString(),
+                        )
+                    } else LoadProtocolPage(extensionID, preloadedResources, url)
+                }
                 break
             case Environment.backgroundScript:
                 prepareExtensionProtocolEnvironment(extensionID, manifest)
@@ -87,24 +104,17 @@ function getContext(manifest: Manifest, extensionID: string, preloadedResources:
             location.pathname === '/' + manifest.background.page
         ) {
             environment = Environment.backgroundScript
-        } else if (
-            manifest.page_action &&
-            manifest.page_action.default_popup &&
-            location.pathname === '/' + manifest.page_action.default_popup
-        ) {
-            environment = Environment.pageAction
-        } else environment = Environment.optionsPage
+        } else environment = Environment.protocolPage
     } else if (isDebug) {
         // debug usage
         const param = new URL(location.href)
         const type = param.searchParams.get('type')
         if (type === 'b') environment = Environment.backgroundScript
-        else if (type === 'c') environment = Environment.contentScript
-        else if (type === 'p') environment = Environment.pageAction
-        else if (type === 'o') environment = Environment.optionsPage
+        else if (type === 'p') environment = Environment.protocolPage
+        else if (type === 'm') environment = Environment.debugModeManagedPage
         else
             throw new TypeError(
-                'To debug, ?type= must be one of (b)ackground, (c)ontent-script, (p)age-action-popup, (o)ptions-page, found ' +
+                'To debug, ?type= must be one of (b)ackground, (p)rotocol-page, (m)anaged-page (used to debug content script), found ' +
                     type,
             )
     } else {
@@ -127,79 +137,99 @@ function untilDocumentReady() {
     })
 }
 
+async function LoadProtocolPage(
+    extensionID: string,
+    preloadedResources: Record<string, string>,
+    loadingPageURL: string,
+) {
+    loadingPageURL = new URL(loadingPageURL, 'holoflows-extension://' + extensionID + '/').toJSON()
+    writeHTMLScriptElementSrc(extensionID, preloadedResources, loadingPageURL)
+    await loadProtocolPageToCurrentPage(extensionID, preloadedResources, loadingPageURL)
+}
+
 async function LoadBackgroundScript(
     manifest: Manifest,
     extensionID: string,
     preloadedResources: Record<string, string>,
 ) {
     if (!manifest.background) return
+    const { page, scripts } = (manifest.background as any) as { page: string; scripts: string[] }
     if (!isDebug && location.protocol !== 'holoflows-extension:') {
         throw new TypeError(`Background script only allowed in localhost(for debugging) and holoflows-extension://`)
     }
-    const { page, scripts } = manifest.background as any
+    let currentPage = 'holoflows-extension://' + extensionID + '/_generated_background_page.html'
     if (page) {
         if (scripts && scripts.length)
             throw new TypeError(`In the manifest, you can't have both "page" and "scripts" for background field!`)
         const pageURL = new URL(page, location.origin)
         if (pageURL.origin !== location.origin)
             throw new TypeError(`You can not specify a foreign origin for the background page`)
-        const html = await getResourceAsync(extensionID, preloadedResources, page)
-        if (!html) throw new TypeError('Cannot find background page.')
-        if (isDebug) {
-            const parser = new DOMParser()
-            const dom = parser.parseFromString(html, 'text/html')
-            const scripts = await Promise.all(
-                Array.from(dom.querySelectorAll('script')).map(async script => {
-                    const path = new URL(script.src).pathname
-                    script.remove()
-                    return [path, await getResourceAsync(extensionID, preloadedResources, path)]
-                }),
-            )
-            document.write(new XMLSerializer().serializeToString(dom))
-            for (const [path, script] of scripts) {
-                if (script) RunInGlobalScope(extensionID, script)
-                else console.error('Resource', path, 'not found')
+        currentPage = 'holoflows-extension://' + extensionID + '/' + pageURL
+    }
+    writeHTMLScriptElementSrc(extensionID, preloadedResources, currentPage)
+    if (page) {
+        await loadProtocolPageToCurrentPage(extensionID, preloadedResources, page)
+        const div = document.createElement('div')
+        div.innerHTML = `
+<style>body{background: black; color: white;font-family: system-ui;}</style>
+This page is in the debug mode of WebExtension-polyfill<br />
+It's running in the background page mode`
+        document.body.appendChild(div)
+    } else {
+        for (const path of (scripts as string[]) || []) {
+            const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
+            if (preloaded) {
+                // ? Run it in global scope.
+                RunInProtocolScope(extensionID, preloaded, currentPage)
+            } else {
+                console.error(`[WebExtension] Background scripts not found for ${manifest.name}: ${path}`)
             }
-            const div = document.createElement('div')
-            div.innerHTML = `<style>body{background: black; color: white;font-family: system-ui;}</style>
-            This page is in the debug mode of webextension-polyfill<br />
-            It's running in the background page mode`
-            document.body.appendChild(div)
-        } else {
-            document.write(html)
-        }
-    }
-    {
-        const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!
-        Object.defineProperty(HTMLScriptElement.prototype, 'src', {
-            get() {
-                return src.get!.call(this)
-            },
-            set(path) {
-                console.log('Loading ', path)
-                const preloaded = getResource(extensionID, preloadedResources, path)
-                if (preloaded) RunInGlobalScope(extensionID, preloaded)
-                else
-                    getResourceAsync(extensionID, preloadedResources, path)
-                        .then(code => code || Promise.reject<string>('Loading resource failed'))
-                        .then(code => RunInGlobalScope(extensionID, code))
-                        .catch(e => console.error(`Failed when loading resource`, path))
-                src.set!.call(this, path)
-                return true
-            },
-        })
-    }
-    for (const path of (scripts as string[]) || []) {
-        const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
-        if (preloaded) {
-            // ? Run it in global scope.
-            RunInGlobalScope(extensionID, preloaded)
-        } else {
-            console.error(`[WebExtension] Background scripts not found for ${manifest.name}: ${path}`)
         }
     }
 }
+
+async function loadProtocolPageToCurrentPage(
+    extensionID: string,
+    preloadedResources: Record<string, string>,
+    page: string,
+) {
+    const html = await getResourceAsync(extensionID, preloadedResources, page)
+    if (!html) throw new TypeError('Cannot find background page.')
+    if (isDebug) {
+        const parser = new DOMParser()
+        const dom = parser.parseFromString(html, 'text/html')
+        const scripts = await Promise.all(
+            Array.from(dom.querySelectorAll('script')).map(async script => {
+                const path = new URL(script.src).pathname
+                script.remove()
+                return [path, await getResourceAsync(extensionID, preloadedResources, path)]
+            }),
+        )
+        for (const c of document.head.children) c.remove()
+        for (const c of dom.head.children) document.head.appendChild(c)
+        for (const c of document.body.children) c.remove()
+        for (const c of dom.body.children) document.body.appendChild(c)
+        for (const [path, script] of scripts) {
+            if (script)
+                RunInProtocolScope(
+                    extensionID,
+                    script,
+                    new URL(page, 'holoflows-extension://' + extensionID + '/').toJSON(),
+                )
+            else console.error('Resource', path, 'not found')
+        }
+    } else {
+        const parser = new DOMParser()
+        const dom = parser.parseFromString(html, 'text/html')
+        for (const c of document.head.children) c.remove()
+        for (const c of dom.head.children) document.head.appendChild(c)
+        for (const c of document.body.children) c.remove()
+        for (const c of dom.body.children) document.body.appendChild(c)
+    }
+}
+
 function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Manifest) {
+    rewriteWorker(extensionID)
     Object.assign(window, {
         browser: BrowserFactory(extensionID, manifest),
         fetch: createFetch(extensionID, window.fetch),
@@ -209,7 +239,7 @@ function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Mani
     } as Partial<typeof globalThis>)
 }
 
-function RunInGlobalScope(extensionID: string, source: string): void {
+export function RunInProtocolScope(extensionID: string, source: string, currentPage: string): void {
     if (location.protocol === 'holoflows-extension:') {
         const likeESModule = source.match('import') || source.match('export ')
         const script = document.createElement('script')
@@ -218,28 +248,78 @@ function RunInGlobalScope(extensionID: string, source: string): void {
         return
     }
     if (source.indexOf('browser')) {
-        const f = new Function(`with (
-                new Proxy(window, {
-                    get(target, key) {
-                        if (key === 'location')
-                            return new URL("holoflows-extension://${extensionID}/_generated_background_page.html")
-                        if(typeof target[key] === 'function') {
-                            const desc2 = Object.getOwnPropertyDescriptors(target[key])
-                            function f(...args) {
-                                if (new.target) return Reflect.construct(target[key], args, new.target)
-                                return Reflect.apply(target[key], window, args)
-                            }
-                            Object.defineProperties(f, desc2)
-                            f.prototype = target[key].prototype
-                            return f
+        const indirectEval = Math.random() > -1 ? eval : () => {}
+        const f = indirectEval(`(function(_){with(_){${source}}})`)
+        const _ = (x: keyof typeof Reflect) => (target: any, ...any: any[]) =>
+            Reflect.apply(Reflect[x], null, [window, ...any])
+        const safeGetOwnPropertyDescriptor = (obj: any, key: any) => {
+            const orig = Reflect.getOwnPropertyDescriptor(obj, key)
+            if (!orig) return undefined
+            return { ...orig, configurable: true }
+        }
+        const globalProxyTrap = new Proxy(
+            {
+                get(target: any, key: any) {
+                    if (key === 'window') return globalProxy
+                    if (key === 'globalThis') return globalProxy
+                    if (key === 'location') return locationProxy
+                    const obj = window[key] as any
+                    if (typeof obj === 'function') {
+                        const desc2 = Object.getOwnPropertyDescriptors(obj)
+                        function f(...args: any[]) {
+                            if (new.target) return Reflect.construct(obj, args, new.target)
+                            return Reflect.apply(obj, window, args)
                         }
-                        return target[key]
+                        Object.defineProperties(f, desc2)
+                        Object.setPrototypeOf(f, Object.getPrototypeOf(obj))
+                        return f
                     }
-                }
-            )) {
-                ${source}
-              }`)
-        f()
+                    return obj
+                },
+                getOwnPropertyDescriptor: safeGetOwnPropertyDescriptor,
+            } as ProxyHandler<any>,
+            {
+                get(target: any, key: any) {
+                    if (target[key]) return target[key]
+                    return _(key)
+                },
+            },
+        )
+        const globalProxy: typeof window = new Proxy({}, globalProxyTrap) as any
+        const locationProxy = new Proxy(
+            {},
+            {
+                get(target: Location, key: keyof Location) {
+                    target = location
+                    const obj = target[key] as any
+                    if (key === 'reload') return () => target.reload()
+                    if (key === 'assign' || key === 'replace')
+                        return (url: string) => {
+                            locationProxy.href = url
+                        }
+                    const mockedURL = new URL(new URLSearchParams(target.search).get('url') || currentPage)
+                    if (key in mockedURL) return mockedURL[key as keyof URL]
+                    console.warn('Accessing', key, 'on location')
+                    return obj
+                },
+                set(target: Location, key: keyof Location, value: any) {
+                    target = location
+                    if (key === 'origin') return false
+                    const mockedURL = new URL(new URLSearchParams(target.search).get('url') || currentPage)
+                    if (key in mockedURL) {
+                        if (!Reflect.set(mockedURL, key, value)) return false
+                        const search = new URLSearchParams(target.search)
+                        search.set('url', mockedURL.toJSON())
+                        target.search = search.toString()
+                        return true
+                    }
+                    console.warn('Setting', key, 'on location to', value)
+                    return Reflect.set(target, key, value)
+                },
+                getOwnPropertyDescriptor: safeGetOwnPropertyDescriptor,
+            },
+        )
+        f(globalProxy)
     } else {
         eval(source)
     }
