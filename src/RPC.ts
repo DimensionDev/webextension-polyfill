@@ -242,9 +242,10 @@ class iOSWebkitChannel {
 }
 
 export class SamePageDebugChannel {
-    static target = document.createElement('a')
-    constructor() {
-        SamePageDebugChannel.target.addEventListener('targetEventChannel', e => {
+    static server = document.createElement('a')
+    static client = document.createElement('a')
+    constructor(private actor: 'server' | 'client') {
+        SamePageDebugChannel[actor].addEventListener('targetEventChannel', e => {
             const detail = (e as CustomEvent).detail
             for (const f of this.listener) {
                 try {
@@ -258,7 +259,9 @@ export class SamePageDebugChannel {
         this.listener.push(cb)
     }
     emit(_: string, data: any): void {
-        SamePageDebugChannel.target.dispatchEvent(new CustomEvent('targetEventChannel', { detail: data }))
+        SamePageDebugChannel[this.actor === 'client' ? 'server' : 'client'].dispatchEvent(
+            new CustomEvent('targetEventChannel', { detail: data }),
+        )
     }
 }
 export const ThisSideImplementation: ThisSideImplementation = {
@@ -302,5 +305,5 @@ export const ThisSideImplementation: ThisSideImplementation = {
 export const Host = AsyncCall<Host>(ThisSideImplementation as any, {
     key: '',
     log: false,
-    messageChannel: isDebug ? new SamePageDebugChannel() : new iOSWebkitChannel(),
+    messageChannel: isDebug ? new SamePageDebugChannel('client') : new iOSWebkitChannel(),
 })

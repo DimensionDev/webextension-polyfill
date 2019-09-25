@@ -7,9 +7,10 @@ import { openEnhanced, closeEnhanced } from './shims/window.open+close'
 import { getResourceAsync } from './utils/Resources'
 import { EventPools } from './utils/LocalMessages'
 import { reservedID, useInternalStorage } from './internal'
-import { isDebug } from './debugger/isDebugMode'
+import { isDebug, parseDebugModeURL } from './debugger/isDebugMode'
 import { writeHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
 import { rewriteWorker } from './hijacks/Worker.prototype.constructor'
+import { createLocationProxy } from './hijacks/location'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -20,7 +21,7 @@ export interface WebExtension {
     preloadedResources: Record<string, string>
 }
 export const registeredWebExtension = new Map<WebExtensionID, WebExtension>()
-enum Environment {
+export enum Environment {
     contentScript = 'Content script',
     backgroundScript = 'Background script',
     protocolPage = 'Protocol page',
@@ -34,28 +35,21 @@ export async function registerWebExtension(
     if (extensionID === reservedID)
         throw new TypeError('You cannot use reserved id ' + reservedID + ' as the extension id')
     let environment: Environment = getContext(manifest, extensionID, preloadedResources)
+    let debugModeURL = ''
+    if (isDebug) {
+        const opt = parseDebugModeURL(extensionID, manifest)
+        environment = opt.env
+        debugModeURL = opt.src
+    }
     try {
         switch (environment) {
             case Environment.debugModeManagedPage:
                 if (!isDebug) throw new TypeError('Invalid state')
-                // TODO: fake a url.
-                LoadContentScript(manifest, extensionID, preloadedResources)
+                LoadContentScript(manifest, extensionID, preloadedResources, debugModeURL)
                 break
             case Environment.protocolPage:
                 prepareExtensionProtocolEnvironment(extensionID, manifest)
-                if (isDebug) {
-                    const url = new URL(location.href).searchParams.get('url')
-                    if (!url) throw new TypeError('This page need a "url" search param')
-                    if (url === '_options_') {
-                        LoadProtocolPage(extensionID, preloadedResources, manifest.options_ui!.page)
-                    } else if (url === '_popup_') {
-                        LoadProtocolPage(
-                            extensionID,
-                            preloadedResources,
-                            manifest.page_action!.default_popup!.toString(),
-                        )
-                    } else LoadProtocolPage(extensionID, preloadedResources, url)
-                }
+                if (isDebug) LoadProtocolPage(extensionID, manifest, preloadedResources, debugModeURL)
                 break
             case Environment.backgroundScript:
                 prepareExtensionProtocolEnvironment(extensionID, manifest)
@@ -105,18 +99,6 @@ function getContext(manifest: Manifest, extensionID: string, preloadedResources:
         ) {
             environment = Environment.backgroundScript
         } else environment = Environment.protocolPage
-    } else if (isDebug) {
-        // debug usage
-        const param = new URL(location.href)
-        const type = param.searchParams.get('type')
-        if (type === 'b') environment = Environment.backgroundScript
-        else if (type === 'p') environment = Environment.protocolPage
-        else if (type === 'm') environment = Environment.debugModeManagedPage
-        else
-            throw new TypeError(
-                'To debug, ?type= must be one of (b)ackground, (p)rotocol-page, (m)anaged-page (used to debug content script), found ' +
-                    type,
-            )
     } else {
         environment = Environment.contentScript
     }
@@ -139,12 +121,13 @@ function untilDocumentReady() {
 
 async function LoadProtocolPage(
     extensionID: string,
+    manifest: Manifest,
     preloadedResources: Record<string, string>,
     loadingPageURL: string,
 ) {
     loadingPageURL = new URL(loadingPageURL, 'holoflows-extension://' + extensionID + '/').toJSON()
-    writeHTMLScriptElementSrc(extensionID, preloadedResources, loadingPageURL)
-    await loadProtocolPageToCurrentPage(extensionID, preloadedResources, loadingPageURL)
+    writeHTMLScriptElementSrc(extensionID, manifest, preloadedResources, loadingPageURL)
+    await loadProtocolPageToCurrentPage(extensionID, manifest, preloadedResources, loadingPageURL)
 }
 
 async function LoadBackgroundScript(
@@ -166,9 +149,9 @@ async function LoadBackgroundScript(
             throw new TypeError(`You can not specify a foreign origin for the background page`)
         currentPage = 'holoflows-extension://' + extensionID + '/' + pageURL
     }
-    writeHTMLScriptElementSrc(extensionID, preloadedResources, currentPage)
+    writeHTMLScriptElementSrc(extensionID, manifest, preloadedResources, currentPage)
     if (page) {
-        await loadProtocolPageToCurrentPage(extensionID, preloadedResources, page)
+        await loadProtocolPageToCurrentPage(extensionID, manifest, preloadedResources, page)
         const div = document.createElement('div')
         div.innerHTML = `
 <style>body{background: black; color: white;font-family: system-ui;}</style>
@@ -180,7 +163,7 @@ It's running in the background page mode`
             const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
             if (preloaded) {
                 // ? Run it in global scope.
-                RunInProtocolScope(extensionID, preloaded, currentPage)
+                RunInProtocolScope(extensionID, manifest, preloaded, currentPage)
             } else {
                 console.error(`[WebExtension] Background scripts not found for ${manifest.name}: ${path}`)
             }
@@ -190,6 +173,7 @@ It's running in the background page mode`
 
 async function loadProtocolPageToCurrentPage(
     extensionID: string,
+    manifest: Manifest,
     preloadedResources: Record<string, string>,
     page: string,
 ) {
@@ -213,6 +197,7 @@ async function loadProtocolPageToCurrentPage(
             if (script)
                 RunInProtocolScope(
                     extensionID,
+                    manifest,
                     script,
                     new URL(page, 'holoflows-extension://' + extensionID + '/').toJSON(),
                 )
@@ -239,7 +224,7 @@ function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Mani
     } as Partial<typeof globalThis>)
 }
 
-export function RunInProtocolScope(extensionID: string, source: string, currentPage: string): void {
+export function RunInProtocolScope(extensionID: string, manifest: Manifest, source: string, currentPage: string): void {
     if (location.protocol === 'holoflows-extension:') {
         const likeESModule = source.match('import') || source.match('export ')
         const script = document.createElement('script')
@@ -247,6 +232,7 @@ export function RunInProtocolScope(extensionID: string, source: string, currentP
         script.innerText = source
         return
     }
+    if (!isDebug) throw new TypeError('Run in the wrong scope')
     if (source.indexOf('browser')) {
         const indirectEval = Math.random() > -1 ? eval : () => {}
         const f = indirectEval(`(function(_){with(_){${source}}})`)
@@ -257,6 +243,8 @@ export function RunInProtocolScope(extensionID: string, source: string, currentP
             if (!orig) return undefined
             return { ...orig, configurable: true }
         }
+        const { env, src } = parseDebugModeURL(extensionID, manifest)
+        const locationProxy = createLocationProxy(extensionID, manifest, currentPage || src)
         const globalProxyTrap = new Proxy(
             {
                 get(target: any, key: any) {
@@ -286,48 +274,29 @@ export function RunInProtocolScope(extensionID: string, source: string, currentP
             },
         )
         const globalProxy: typeof window = new Proxy({}, globalProxyTrap) as any
-        const locationProxy = new Proxy(
-            {},
-            {
-                get(target: Location, key: keyof Location) {
-                    target = location
-                    const obj = target[key] as any
-                    if (key === 'reload') return () => target.reload()
-                    if (key === 'assign' || key === 'replace')
-                        return (url: string) => {
-                            locationProxy.href = url
-                        }
-                    const mockedURL = new URL(new URLSearchParams(target.search).get('url') || currentPage)
-                    if (key in mockedURL) return mockedURL[key as keyof URL]
-                    console.warn('Accessing', key, 'on location')
-                    return obj
-                },
-                set(target: Location, key: keyof Location, value: any) {
-                    target = location
-                    if (key === 'origin') return false
-                    const mockedURL = new URL(new URLSearchParams(target.search).get('url') || currentPage)
-                    if (key in mockedURL) {
-                        if (!Reflect.set(mockedURL, key, value)) return false
-                        const search = new URLSearchParams(target.search)
-                        search.set('url', mockedURL.toJSON())
-                        target.search = search.toString()
-                        return true
-                    }
-                    console.warn('Setting', key, 'on location to', value)
-                    return Reflect.set(target, key, value)
-                },
-                getOwnPropertyDescriptor: safeGetOwnPropertyDescriptor,
-            },
-        )
         f(globalProxy)
     } else {
         eval(source)
     }
 }
 
-async function LoadContentScript(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
+async function LoadContentScript(
+    manifest: Manifest,
+    extensionID: string,
+    preloadedResources: Record<string, string>,
+    debugModePretendedURL?: string,
+) {
+    if (!isDebug && debugModePretendedURL) throw new TypeError('Invalid state')
     if (!registeredWebExtension.has(extensionID)) {
-        const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
+        const environment = new WebExtensionContentScriptEnvironment(
+            extensionID,
+            manifest,
+            debugModePretendedURL
+                ? sandboxGlobal => {
+                      sandboxGlobal.location = createLocationProxy(extensionID, manifest, debugModePretendedURL)
+                  }
+                : undefined,
+        )
         const ext: WebExtension = {
             manifest,
             environment,
@@ -339,7 +308,7 @@ async function LoadContentScript(manifest: Manifest, extensionID: string, preloa
         warningNotImplementedItem(content, index)
         if (
             matchingURL(
-                new URL(location.href),
+                new URL(debugModePretendedURL || location.href),
                 content.matches,
                 content.exclude_matches || [],
                 content.include_globs || [],

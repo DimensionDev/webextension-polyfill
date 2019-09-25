@@ -110,10 +110,12 @@ export class WebExtensionContentScriptEnvironment
      * @param extensionID The extension ID
      * @param manifest The manifest of the extension
      */
-    constructor(public extensionID: string, public manifest: Manifest) {
-        this.init()
-    }
-    private init() {
+    constructor(
+        public extensionID: string,
+        public manifest: Manifest,
+        beforePrepare?: (global: typeof window) => void,
+    ) {
+        // beforePrepare && beforePrepare(this.global as any)
         PrepareWebAPIs(this.global)
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)

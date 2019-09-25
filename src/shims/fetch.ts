@@ -14,6 +14,7 @@ export function createFetch(extensionID: string, origFetch: typeof fetch): typeo
             } else if (request.url.startsWith('holoflows-extension://' + extensionID + '/')) {
                 return origFetch(requestInfo, requestInit)
             } else {
+                if (isDebug) return origFetch(requestInfo, requestInit)
                 const result = await Host.fetch(extensionID, { method: request.method, url: url.toJSON() })
                 const data = decodeStringOrBlob(result.data)
                 if (data === null) throw new Error('')

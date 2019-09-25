@@ -32,17 +32,24 @@ class CrossPageDebugChannel {
     }
 }
 
+interface MockedLocalService {
+    onMessage: ThisSideImplementation['onMessage']
+    onCommitted: ThisSideImplementation['browser.webNavigation.onCommitted']
+}
 if (isDebug) {
-    const mockHost = AsyncCall<{ onMessage: ThisSideImplementation['onMessage'] }>(
+    const mockHost = AsyncCall<MockedLocalService>(
         {
             onMessage: ThisSideImplementation.onMessage,
-        } as { onMessage: ThisSideImplementation['onMessage'] },
+            onCommitted: ThisSideImplementation['browser.webNavigation.onCommitted'],
+        } as MockedLocalService,
         {
             key: 'mock',
             log: false,
             messageChannel: new CrossPageDebugChannel(),
         },
     )
+    const myTabID = Math.random()
+    mockHost.onCommitted({ tabId: myTabID, url: location.href })
     const host: Host = {
         'URL.createObjectURL': log(void 0),
         'URL.revokeObjectURL': log(void 0),
@@ -84,6 +91,6 @@ if (isDebug) {
     AsyncCall(host, {
         key: '',
         log: false,
-        messageChannel: new SamePageDebugChannel(),
+        messageChannel: new SamePageDebugChannel('server'),
     })
 }
