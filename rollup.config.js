@@ -3,8 +3,7 @@ import commonjs from 'rollup-plugin-commonjs'
 import nodeResolve from 'rollup-plugin-node-resolve'
 import * as Rollup from 'rollup'
 
-const buildIgnore = ['vm']
-const devIgnore = ['vm', '@microsoft/typescript-etw', 'fs', 'path', 'os', 'crypto', 'buffer', 'source-map-support']
+const ignore = ['vm', '@microsoft/typescript-etw', 'fs', 'path', 'os', 'crypto', 'buffer', 'source-map-support']
 
 const isDev = process.argv.join(' ').indexOf('-w') !== -1
 
@@ -31,7 +30,7 @@ const config = {
             namedExports: {
                 'node_modules/@holoflows/kit/node_modules/events/events.js': ['EventEmitter'],
             },
-            ignore: isDev ? devIgnore : buildIgnore,
+            ignore: ignore,
             sourceMap: true,
         }),
     ],
