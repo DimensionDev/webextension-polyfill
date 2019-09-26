@@ -12,12 +12,13 @@ if (isDebug) {
             .then(x => x.text())
             .then(x => {
                 console.log('Loading test WebExtension')
-                Object.assign({
+                Object.assign(globalThis, {
                     a: registerWebExtension,
                     b: WebExtensionContentScriptEnvironment,
-                    c: registerWebExtension(id, JSON.parse(x)),
                 })
-            }),
+                return registerWebExtension(id, JSON.parse(x))
+            })
+            .then(v => Object.assign(globalThis, { c: v })),
     )
 }
 

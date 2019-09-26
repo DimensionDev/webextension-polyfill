@@ -110,13 +110,14 @@ export class WebExtensionContentScriptEnvironment
      * @param extensionID The extension ID
      * @param manifest The manifest of the extension
      */
-    constructor(
-        public extensionID: string,
-        public manifest: Manifest,
-        beforePrepare?: (global: typeof window) => void,
-    ) {
-        // beforePrepare && beforePrepare(this.global as any)
+    constructor(public extensionID: string, public manifest: Manifest) {
         PrepareWebAPIs(this.global)
+        const browser = BrowserFactory(this.extensionID, this.manifest)
+        Object.defineProperty(this.global, 'browser', {
+            // ? Mozilla's polyfill may overwrite this. Figure this out.
+            get: () => browser,
+            set: x => false,
+        })
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
         this.global.fetch = createFetch(this.extensionID, window.fetch)
@@ -147,7 +148,7 @@ function PatchThisOfDescriptorToGlobal(desc: PropertyDescriptor, global: Window)
         Object.defineProperties(desc.value, desc2)
         try {
             // ? For unknown reason this fail for some objects on Safari.
-            desc.value.prototype = value.prototype
+            value.prototype && Object.setPrototypeOf(desc.value, value.prototype)
         } catch {}
     }
 }

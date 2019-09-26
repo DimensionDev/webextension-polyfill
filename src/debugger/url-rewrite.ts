@@ -1,7 +1,7 @@
 import { isDebug } from './isDebugMode'
 
 export function debugModeURLRewrite(extensionID: string, url: string): string {
-    if (!isDebug) throw new TypeError('')
+    if (!isDebug) return url
     const u = new URL(url, 'holoflows-extension://' + extensionID + '/')
     if (u.protocol === 'holoflows-extension:') {
         u.protocol = location.protocol

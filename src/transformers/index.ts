@@ -9,6 +9,7 @@ export function transformAST(src: string) {
         reportDiagnostics: true,
         compilerOptions: {
             target: ts.ScriptTarget.ES2017,
+            removeComments: true,
         },
     })
     const error = []

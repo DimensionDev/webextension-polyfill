@@ -2,7 +2,7 @@ import { AsyncCall } from '@holoflows/kit/es'
 import { Host, ThisSideImplementation, SamePageDebugChannel } from '../RPC'
 import { useInternalStorage } from '../internal'
 import { getResourceAsync } from '../utils/Resources'
-import { isDebug } from './isDebugMode'
+import { isDebug, parseDebugModeURL } from './isDebugMode'
 import { debugModeURLRewrite } from './url-rewrite'
 
 const log: <T>(rt: T) => (...args: any[]) => Promise<T> = rt => async (...args) => {
@@ -49,7 +49,10 @@ if (isDebug) {
         },
     )
     const myTabID = Math.random()
-    mockHost.onCommitted({ tabId: myTabID, url: location.href })
+    setTimeout(() => {
+        const obj = parseDebugModeURL('', {} as any)
+        mockHost.onCommitted({ tabId: myTabID, url: obj.src })
+    }, 2000)
     const host: Host = {
         'URL.createObjectURL': log(void 0),
         'URL.revokeObjectURL': log(void 0),

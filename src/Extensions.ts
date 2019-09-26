@@ -287,16 +287,30 @@ async function LoadContentScript(
     debugModePretendedURL?: string,
 ) {
     if (!isDebug && debugModePretendedURL) throw new TypeError('Invalid state')
+    if (isDebug) {
+        document.body.innerHTML = `
+<style>body{background: black; color: white;font-family: system-ui;}</style>
+<div>This page is running in the debug mode of WebExtension polyfill</div>
+<div>It now pretending to be ${debugModePretendedURL}</div>
+<div>So your content script will inject into this page.</div>
+<hr />
+Copy and apply the webpage to debug your content script:
+
+<textarea id="a"></textarea>
+<br />
+<button onclick="
+var p = new DOMParser();
+var dom = p.parseFromString(document.getElementById('a').value, 'text/html');
+dom.querySelectorAll('script').forEach(x => x.remove());
+var x = new XMLSerializer();
+var html = x.serializeToString(dom);
+document.write(html);">Remove script tags and go</button>
+`
+    }
     if (!registeredWebExtension.has(extensionID)) {
-        const environment = new WebExtensionContentScriptEnvironment(
-            extensionID,
-            manifest,
-            debugModePretendedURL
-                ? sandboxGlobal => {
-                      sandboxGlobal.location = createLocationProxy(extensionID, manifest, debugModePretendedURL)
-                  }
-                : undefined,
-        )
+        const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
+        if (debugModePretendedURL)
+            environment.global.location = createLocationProxy(extensionID, manifest, debugModePretendedURL)
         const ext: WebExtension = {
             manifest,
             environment,

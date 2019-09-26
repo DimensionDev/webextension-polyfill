@@ -1,8 +1,11 @@
+import { isDebug } from '../debugger/isDebugMode'
+import { debugModeURLRewrite } from '../debugger/url-rewrite'
+
 const normalized = Symbol('Normalized resources')
 function normalizePath(path: string, extensionID: string) {
     const prefix = getPrefix(extensionID)
-    if (path.startsWith(prefix)) return path
-    else return new URL(path, prefix).toJSON()
+    if (path.startsWith(prefix)) return debugModeURLRewrite(extensionID, path)
+    else return debugModeURLRewrite(extensionID, new URL(path, prefix).toJSON())
 }
 function getPrefix(extensionID: string) {
     return 'holoflows-extension://' + extensionID + '/'
