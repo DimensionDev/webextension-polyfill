@@ -147,17 +147,21 @@ async function LoadBackgroundScript(
         const pageURL = new URL(page, location.origin)
         if (pageURL.origin !== location.origin)
             throw new TypeError(`You can not specify a foreign origin for the background page`)
-        currentPage = 'holoflows-extension://' + extensionID + '/' + pageURL
+        currentPage = 'holoflows-extension://' + extensionID + '/' + page
     }
     writeHTMLScriptElementSrc(extensionID, manifest, preloadedResources, currentPage)
     if (page) {
-        await loadProtocolPageToCurrentPage(extensionID, manifest, preloadedResources, page)
-        const div = document.createElement('div')
-        div.innerHTML = `
+        if (currentPage !== location.href) {
+            await loadProtocolPageToCurrentPage(extensionID, manifest, preloadedResources, page)
+            const div = document.createElement('div')
+            if (isDebug) {
+                div.innerHTML = `
 <style>body{background: black; color: white;font-family: system-ui;}</style>
 This page is in the debug mode of WebExtension-polyfill<br />
 It's running in the background page mode`
-        document.body.appendChild(div)
+                document.body.appendChild(div)
+            }
+        }
     } else {
         for (const path of (scripts as string[]) || []) {
             const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
@@ -179,37 +183,28 @@ async function loadProtocolPageToCurrentPage(
 ) {
     const html = await getResourceAsync(extensionID, preloadedResources, page)
     if (!html) throw new TypeError('Cannot find background page.')
-    if (isDebug) {
-        const parser = new DOMParser()
-        const dom = parser.parseFromString(html, 'text/html')
-        const scripts = await Promise.all(
-            Array.from(dom.querySelectorAll('script')).map(async script => {
-                const path = new URL(script.src).pathname
-                script.remove()
-                return [path, await getResourceAsync(extensionID, preloadedResources, path)]
-            }),
-        )
-        for (const c of document.head.children) c.remove()
-        for (const c of dom.head.children) document.head.appendChild(c)
-        for (const c of document.body.children) c.remove()
-        for (const c of dom.body.children) document.body.appendChild(c)
-        for (const [path, script] of scripts) {
-            if (script)
-                RunInProtocolScope(
-                    extensionID,
-                    manifest,
-                    script,
-                    new URL(page, 'holoflows-extension://' + extensionID + '/').toJSON(),
-                )
-            else console.error('Resource', path, 'not found')
-        }
-    } else {
-        const parser = new DOMParser()
-        const dom = parser.parseFromString(html, 'text/html')
-        for (const c of document.head.children) c.remove()
-        for (const c of dom.head.children) document.head.appendChild(c)
-        for (const c of document.body.children) c.remove()
-        for (const c of dom.body.children) document.body.appendChild(c)
+    const parser = new DOMParser()
+    const dom = parser.parseFromString(html, 'text/html')
+    const scripts = await Promise.all(
+        Array.from(dom.querySelectorAll('script')).map(async script => {
+            const path = new URL(script.src).pathname
+            script.remove()
+            return [path, await getResourceAsync(extensionID, preloadedResources, path)]
+        }),
+    )
+    for (const c of document.head.children) c.remove()
+    for (const c of dom.head.children) document.head.appendChild(c)
+    for (const c of document.body.children) c.remove()
+    for (const c of dom.body.children) document.body.appendChild(c)
+    for (const [path, script] of scripts) {
+        if (script)
+            RunInProtocolScope(
+                extensionID,
+                manifest,
+                script,
+                new URL(page, 'holoflows-extension://' + extensionID + '/').toJSON(),
+            )
+        else console.error('Resource', path, 'not found')
     }
 }
 
@@ -229,7 +224,9 @@ export function RunInProtocolScope(extensionID: string, manifest: Manifest, sour
         const likeESModule = source.match('import') || source.match('export ')
         const script = document.createElement('script')
         script.type = likeESModule ? 'module' : 'text/javascript'
-        script.innerText = source
+        script.innerHTML = source
+        script.defer = true
+        document.body.appendChild(script)
         return
     }
     if (!isDebug) throw new TypeError('Run in the wrong scope')

@@ -101,10 +101,12 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
         extension: NotImplementedProxy<typeof browser.extension>({
             getBackgroundPage() {
                 const defaultName = '_generated_background_page.html'
+                const manifestName = manifest.background!.page
+                if (location.pathname === '/' + defaultName || location.pathname === '/' + manifestName) return window
                 return new Proxy(
                     {
                         location: new URL(
-                            `holoflows-extension://${extensionID}/${manifest.background!.page || defaultName}`,
+                            `holoflows-extension://${extensionID}/${manifestName || defaultName}`,
                         ) as Partial<Location>,
                     } as Partial<Window>,
                     {

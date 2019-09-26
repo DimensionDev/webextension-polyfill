@@ -15,8 +15,8 @@ export async function useInternalStorage(
         localStorage.setItem(reservedID + ':' + extensionID, JSON.stringify(obj))
         return Promise.resolve(obj)
     }
-    const obj = await Host['browser.storage.local.get'](reservedID, extensionID)
-    if (!modify) return obj || {}
+    const obj = ((await Host['browser.storage.local.get'](reservedID, extensionID)) as any)[extensionID] || {}
+    if (!modify) return obj
     modify(obj)
     Host['browser.storage.local.set'](reservedID, { [extensionID]: obj })
     return obj
@@ -29,8 +29,9 @@ export async function useGlobalInternalStorage(extensionID: string, modify: (obj
         return Promise.resolve()
     }
     return Host['browser.storage.local.get'](reservedID, reservedID)
-        .then((obj: any) => {
-            modify(obj[extensionID] || {})
+        .then((x: Record<string, any>) => x[reservedID] || {})
+        .then((obj: Record<string, any>) => {
+            modify(obj)
             return obj
         })
         .then(o => Host['browser.storage.local.set'](reservedID, { [reservedID]: o }))

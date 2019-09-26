@@ -61,16 +61,16 @@ export interface Host {
      * @param key
      *
      * @example
-     * > Storage: `{ a: { value: 2 }, b: { name: "x" }, c: 1 }`
+     * > Storage: { a: { value: 2 }, b: { name: "x" }, c: 1 }
      *
      * get(id, 'b')
-     * > Return `{name: "x"}`
+     * > Return {name: "x"}
      *
      * get(id, null)
-     * > Return: `{ a: { value: 2 }, b: { name: "x" }, c: 1 }`
+     * > Return: { a: { value: 2 }, b: { name: "x" }, c: 1 }
      *
      * get(id, ["a", "b"])
-     * > Return: `{ a: { value: 2 }, b: { name: "x" } }`
+     * > Return: { a: { value: 2 }, b: { name: "x" } }
      */
     'browser.storage.local.get'(extensionID: string, key: string | string[] | null): Promise<object>
     /**
