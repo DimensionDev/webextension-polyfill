@@ -339,9 +339,7 @@ export async function loadContentScript(
     extensionID: string,
     manifest: Manifest,
     content: NonNullable<Manifest['content_scripts']>[0],
-    preloadedResources: Record<string, string> = registeredWebExtension.has(extensionID)
-        ? registeredWebExtension.get(extensionID)!.preloadedResources
-        : {},
+    preloadedResources: Record<string, string>,
 ) {
     const { environment } = registeredWebExtension.get(extensionID)!
     for (const path of content.js || []) {

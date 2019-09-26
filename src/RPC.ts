@@ -285,11 +285,16 @@ export const ThisSideImplementation: ThisSideImplementation = {
                 const ext = registeredWebExtension.get(extensionID)!
                 if (message.code) ext.environment.evaluate(message.code)
                 else if (message.file)
-                    loadContentScript(extensionID, ext.manifest, {
-                        js: [message.file],
-                        // TODO: check the permission to inject the script
-                        matches: ['<all_urls>'],
-                    })
+                    loadContentScript(
+                        extensionID,
+                        ext.manifest,
+                        {
+                            js: [message.file],
+                            // TODO: check the permission to inject the script
+                            matches: ['<all_urls>'],
+                        },
+                        ext.preloadedResources,
+                    )
                 break
             default:
                 break

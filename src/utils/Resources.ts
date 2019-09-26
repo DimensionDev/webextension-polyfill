@@ -1,5 +1,7 @@
 import { isDebug } from '../debugger/isDebugMode'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
+import { Host } from '../RPC'
+import { decodeStringOrBlob } from './StringOrBlob'
 
 const normalized = Symbol('Normalized resources')
 function normalizePath(path: string, extensionID: string) {
@@ -31,7 +33,11 @@ export async function getResourceAsync(extensionID: string, resources: Record<st
     const preloaded = getResource(extensionID, resources, path)
     if (preloaded) return preloaded
 
-    const response = await fetch(normalizePath(path, extensionID))
-    if (response.ok) return response.text()
+    const url = normalizePath(path, extensionID)
+    const response = await Host.fetch(extensionID, { method: 'GET', url })
+    const result = decodeStringOrBlob(response.data)
+    if (result === null) return undefined
+    if (typeof result === 'string') return result
+    console.error('Not supported type for getResourceAsync')
     return undefined
 }
