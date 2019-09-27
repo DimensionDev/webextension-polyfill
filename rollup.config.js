@@ -57,10 +57,10 @@ const TamedFunction = function() {
 };`,
     )
 
-    // const realm = uglify.minify(realmSourceCode, { compress: true })
+    const realm = uglify.minify(realmSourceCode, { compress: true })
     console.log('Writing realm')
-    // if (realm.error) throw realm.error
-    fs.writeFileSync('./dist/realm.js', realmSourceCode)
+    if (realm.error) throw realm.error
+    fs.writeFileSync('./dist/realm.js', realm.code)
 }
 
 const ignore = ['vm', '@microsoft/typescript-etw', 'fs', 'path', 'os', 'crypto', 'buffer', 'source-map-support']
