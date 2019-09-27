@@ -1,5 +1,5 @@
 /// <reference path="../node_modules/web-ext-types/global/index.d.ts" />
-import { AsyncCall } from '@holoflows/kit/es'
+import { AsyncCall } from 'async-call-rpc'
 import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/LocalMessages'
 import { InternalMessage, onNormalMessage } from './shims/browser.message'
 import { registeredWebExtension, loadContentScript } from './Extensions'

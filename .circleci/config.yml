@@ -17,3 +17,9 @@ jobs:
             - store_artifacts:
                   path: dist/out.js
                   destination: /WebExtension-shim.js
+            - store_artifacts:
+                  path: dist/typescript.js
+                  destination: /typescript.js
+            - store_artifacts:
+                  path: dist/realm.js
+                  destination: /realm.js

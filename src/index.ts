@@ -2,6 +2,14 @@ import { registerWebExtension } from './Extensions'
 import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
 import './debugger/localhost'
 import { isDebug } from './debugger/isDebugMode'
+
+// Note: We actually load it as a extern dependency.
+// So we remove them after we got it.
+import Realm from 'realms-shim'
+import ts from 'typescript'
+console.log('Loading dependencies from external', Realm, ts)
+Object.assign(globalThis, { ts: undefined, TypeScript: undefined, Realm: undefined })
+
 // ## Inject here
 
 if (isDebug) {

@@ -1,4 +1,4 @@
-import { AsyncCall } from '@holoflows/kit/es'
+import { AsyncCall } from 'async-call-rpc'
 import { Host, ThisSideImplementation, SamePageDebugChannel } from '../RPC'
 import { useInternalStorage } from '../internal'
 import { getResourceAsync } from '../utils/Resources'
@@ -31,7 +31,7 @@ class CrossPageDebugChannel {
         this.broadcast.postMessage(data)
     }
 }
-
+const origFetch = fetch
 interface MockedLocalService {
     onMessage: ThisSideImplementation['onMessage']
     onCommitted: ThisSideImplementation['browser.webNavigation.onCommitted']
@@ -75,7 +75,7 @@ if (isDebug) {
             const param = new URLSearchParams()
             param.set('url', options.url)
             param.set('type', options.url.startsWith('holoflows-extension://') ? 'p' : 'm')
-            a.href = '/debug?' + param
+            a.href = '/?' + param
             a.innerText = 'browser.tabs.create: ' + options.url
             a.target = '_blank'
             a.style.color = 'white'
@@ -86,7 +86,7 @@ if (isDebug) {
         'browser.tabs.remove': log(void 0),
         'browser.tabs.update': log({} as browser.tabs.Tab),
         async fetch(extensionID, r) {
-            const h = await getResourceAsync(extensionID, {}, r.url)
+            const h = await origFetch(debugModeURLRewrite(extensionID, r.url)).then(x => x.text())
             if (h) return { data: { content: h, mimeType: '', type: 'text' }, status: 200, statusText: 'ok' }
             return { data: { content: '', mimeType: '', type: 'text' }, status: 404, statusText: 'Not found' }
         },
