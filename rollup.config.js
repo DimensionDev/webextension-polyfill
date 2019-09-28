@@ -30,6 +30,15 @@ if (!fs.existsSync('./dist/realm.js')) {
     realmSourceCode = realmSourceCode.replace('const alwaysThrowHandler =', 'const alwaysThrowHandler = freeze({});')
 
     // Hack. Related links:
+    // https://github.com/Agoric/realms-shim/issues/61
+
+    realmSourceCode = realmSourceCode.replace(
+        'function callAndWrapError(target, ...args) {',
+        `function callAndWrapError(target, ...args) { return target(...args) }
+    function callAndWrapErrorOld(target, ...args) {`,
+    )
+
+    // Hack. Related links:
     // https://github.com/Agoric/realms-shim/commit/969f1fe83d764d170292668a73a98eb33cd506ab
     // https://github.com/Agoric/realms-shim/issues/52
     realmSourceCode = realmSourceCode.replace(
@@ -40,7 +49,9 @@ if (!fs.existsSync('./dist/realm.js')) {
       const TamedFunction = function() {
         throw new TypeError('Not available');
       };`,
-        `const oldFunctionConstructor = FunctionPrototype.constructor;
+        `
+        const FunctionPrototype = getPrototypeOf(FunctionInstance);
+const oldFunctionConstructor = FunctionPrototype.constructor;
 function isRunningInRealms() {
   const e = new Error().stack;
   if (!e) return true;
