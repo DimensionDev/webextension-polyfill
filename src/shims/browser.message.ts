@@ -91,6 +91,12 @@ export type InternalMessage =
     | {
           type: 'executeScript'
       } & Parameters<ThisSideImplementation['browser.tabs.executeScript']>[2]
+    | {
+          type: 'onWebNavigationChanged'
+          // Other events seems impossible to implement
+          status: 'onCommitted' | 'onDOMContentLoaded' | 'onCompleted' | 'onHistoryStateUpdated'
+          location: string
+      }
 
 function sendResponseDeprecated(): any {
     throw new Error(

@@ -97,6 +97,8 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
         },
         webNavigation: NotImplementedProxy<typeof browser.webNavigation>({
             onCommitted: createEventListener(extensionID, 'browser.webNavigation.onCommitted'),
+            onCompleted: createEventListener(extensionID, 'browser.webNavigation.onCompleted'),
+            onDOMContentLoaded: createEventListener(extensionID, 'browser.webNavigation.onDOMContentLoaded'),
         }),
         extension: NotImplementedProxy<typeof browser.extension>({
             getBackgroundPage() {

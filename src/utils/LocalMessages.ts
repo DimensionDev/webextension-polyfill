@@ -1,9 +1,12 @@
 import { ThisSideImplementation } from '../RPC'
 type WebExtensionID = string
 type MessageID = string
-type webNavigationOnCommittedArgs = Parameters<ThisSideImplementation['browser.webNavigation.onCommitted']>
-type onMessageArgs = Parameters<ThisSideImplementation['onMessage']>
-type PoolKeys = 'browser.webNavigation.onCommitted' | 'browser.runtime.onMessage' | 'browser.runtime.onInstall'
+type PoolKeys =
+    | 'browser.runtime.onMessage'
+    | 'browser.runtime.onInstall'
+    | 'browser.webNavigation.onCommitted'
+    | 'browser.webNavigation.onDOMContentLoaded'
+    | 'browser.webNavigation.onCompleted'
 /**
  * Used for keep reference to browser.runtime.onMessage
  */
@@ -13,6 +16,8 @@ export const TwoWayMessagePromiseResolver = new Map<MessageID, [(val: any) => an
  */
 export const EventPools: Record<PoolKeys, Map<WebExtensionID, Set<(...args: any[]) => any>>> = {
     'browser.webNavigation.onCommitted': new Map(),
+    'browser.webNavigation.onDOMContentLoaded': new Map(),
+    'browser.webNavigation.onCompleted': new Map(),
     'browser.runtime.onMessage': new Map(),
     'browser.runtime.onInstall': new Map(),
 }

@@ -4,6 +4,7 @@ import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from './utils/Local
 import { InternalMessage, onNormalMessage } from './shims/browser.message'
 import { registeredWebExtension, loadContentScript } from './Extensions'
 import { isDebug } from './debugger/isDebugMode'
+import { reservedID } from './internal'
 
 /** Define Blob type in communicate with remote */
 export type StringOrBlob =
@@ -184,6 +185,8 @@ export interface ThisSideImplementation {
      * @param tab - The committed tab info
      */
     'browser.webNavigation.onCommitted'(tab: { tabId: number; url: string }): Promise<void>
+    'browser.webNavigation.onDOMContentLoaded'(tab: { tabId: number; url: string }): Promise<void>
+    'browser.webNavigation.onCompleted'(tab: { tabId: number; url: string }): Promise<void>
     /**
      * Used to implement browser.runtime.onMessage and browser.tabs.onMessage
      * @param extensionID - Who send this message
@@ -267,6 +270,12 @@ export class SamePageDebugChannel {
 export const ThisSideImplementation: ThisSideImplementation = {
     // todo: check dispatch target's manifest
     'browser.webNavigation.onCommitted': dispatchNormalEvent.bind(null, 'browser.webNavigation.onCommitted', '*'),
+    'browser.webNavigation.onDOMContentLoaded': dispatchNormalEvent.bind(
+        null,
+        'browser.webNavigation.onDOMContentLoaded',
+        '*',
+    ),
+    'browser.webNavigation.onCompleted': dispatchNormalEvent.bind(null, 'browser.webNavigation.onCompleted', '*'),
     async onMessage(extensionID, toExtensionID, messageID, message, sender) {
         switch (message.type) {
             case 'message':
@@ -296,6 +305,26 @@ export const ThisSideImplementation: ThisSideImplementation = {
                         ext.preloadedResources,
                     )
                 break
+            case 'onWebNavigationChanged':
+                const param = {
+                    tabId: parseInt(sender.id! || '-1'),
+                    url: message.location,
+                }
+                switch (message.status) {
+                    case 'onCommitted':
+                        ThisSideImplementation['browser.webNavigation.onCommitted'](param)
+                        break
+                    case 'onCompleted':
+                        ThisSideImplementation['browser.webNavigation.onCompleted'](param)
+                        break
+                    case 'onDOMContentLoaded':
+                        ThisSideImplementation['browser.webNavigation.onDOMContentLoaded'](param)
+                        break
+                    case 'onHistoryStateUpdated':
+                        // TODO: not implemented
+                        break
+                }
+                break
             default:
                 break
         }
@@ -312,3 +341,26 @@ export const Host = AsyncCall<Host>(ThisSideImplementation as any, {
     log: false,
     messageChannel: isDebug ? new SamePageDebugChannel('client') : new iOSWebkitChannel(),
 })
+
+Host.sendMessage(reservedID, reservedID, null, Math.random() + '', {
+    type: 'onWebNavigationChanged',
+    status: 'onCommitted',
+    location: location.href,
+})
+if (typeof window === 'object') {
+    window.addEventListener('DOMContentLoaded', () => {
+        Host.sendMessage(reservedID, reservedID, null, Math.random() + '', {
+            type: 'onWebNavigationChanged',
+            status: 'onDOMContentLoaded',
+            location: location.href,
+        })
+    })
+    window.addEventListener('load', () => {
+        Host.sendMessage(reservedID, reservedID, null, Math.random() + '', {
+            type: 'onWebNavigationChanged',
+            status: 'onCompleted',
+            location: location.href,
+        })
+    })
+    // TODO: implements onHistoryStateUpdated event.
+}
