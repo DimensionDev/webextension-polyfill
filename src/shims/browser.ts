@@ -194,7 +194,8 @@ function NotImplemented(): any {
 function PartialImplemented<T>(obj: T = {} as any, ...keys: (keyof T)[]) {
     const obj2 = { ...obj }
     keys.forEach(x => delete obj2[x])
-    if (Object.keys(obj2).length) console.warn(`Not implemented options`, obj2, `at`, new Error().stack)
+    if (Object.keys(obj2).filter(k => (obj as any)[k] !== undefined || (obj as any)[k] !== null).length)
+        console.warn(`Not implemented options`, obj2, `at`, new Error().stack)
 }
 
 type HeadlessParameters<T extends (...args: any) => any> = T extends (extensionID: string, ...args: infer P) => any
