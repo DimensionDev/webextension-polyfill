@@ -306,8 +306,9 @@ export const ThisSideImplementation: ThisSideImplementation = {
                     )
                 break
             case 'onWebNavigationChanged':
+                if (!sender.tab || sender.tab.id === undefined) break
                 const param = {
-                    tabId: parseInt(sender.id! || '-1'),
+                    tabId: sender.tab.id,
                     url: message.location,
                 }
                 switch (message.status) {
