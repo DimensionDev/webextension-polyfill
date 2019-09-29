@@ -1,6 +1,5 @@
-import { isDebug } from '../debugger/isDebugMode'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
-import { Host } from '../RPC'
+import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { decodeStringOrBlob } from './StringOrBlob'
 
 const normalized = Symbol('Normalized resources')
@@ -34,7 +33,7 @@ export async function getResourceAsync(extensionID: string, resources: Record<st
     if (preloaded) return preloaded
 
     const url = normalizePath(path, extensionID)
-    const response = await Host.fetch(extensionID, { method: 'GET', url })
+    const response = await FrameworkRPC.fetch(extensionID, { method: 'GET', url })
     const result = decodeStringOrBlob(response.data)
     if (result === null) return undefined
     if (typeof result === 'string') return result

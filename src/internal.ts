@@ -1,4 +1,4 @@
-import { Host } from './RPC'
+import { FrameworkRPC } from './RPCs/framework-rpc'
 import { isDebug } from './debugger/isDebugMode'
 /**
  * This ID is used by this polyfill itself.
@@ -15,10 +15,10 @@ export async function useInternalStorage(
         localStorage.setItem(reservedID + ':' + extensionID, JSON.stringify(obj))
         return Promise.resolve(obj)
     }
-    const obj = ((await Host['browser.storage.local.get'](reservedID, extensionID)) as any)[extensionID] || {}
+    const obj = ((await FrameworkRPC['browser.storage.local.get'](reservedID, extensionID)) as any)[extensionID] || {}
     if (!modify) return obj
     modify(obj)
-    Host['browser.storage.local.set'](reservedID, { [extensionID]: obj })
+    FrameworkRPC['browser.storage.local.set'](reservedID, { [extensionID]: obj })
     return obj
 }
 export async function useGlobalInternalStorage(extensionID: string, modify: (obj: GlobalStorage) => void) {
@@ -28,13 +28,13 @@ export async function useGlobalInternalStorage(extensionID: string, modify: (obj
         localStorage.setItem(reservedID + ':' + reservedID, JSON.stringify(obj))
         return Promise.resolve()
     }
-    return Host['browser.storage.local.get'](reservedID, reservedID)
+    return FrameworkRPC['browser.storage.local.get'](reservedID, reservedID)
         .then((x: Record<string, any>) => x[reservedID] || {})
         .then((obj: Record<string, any>) => {
             modify(obj)
             return obj
         })
-        .then(o => Host['browser.storage.local.set'](reservedID, { [reservedID]: o }))
+        .then(o => FrameworkRPC['browser.storage.local.set'](reservedID, { [reservedID]: o }))
 }
 
 interface InternalStorage {

@@ -1,4 +1,4 @@
-import { Host } from '../RPC'
+import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { decodeStringOrBlob } from '../utils/StringOrBlob'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { isDebug } from '../debugger/isDebugMode'
@@ -15,7 +15,7 @@ export function createFetch(extensionID: string, origFetch: typeof fetch): typeo
                 return origFetch(requestInfo, requestInit)
             } else {
                 if (isDebug) return origFetch(requestInfo, requestInit)
-                const result = await Host.fetch(extensionID, { method: request.method, url: url.toJSON() })
+                const result = await FrameworkRPC.fetch(extensionID, { method: request.method, url: url.toJSON() })
                 const data = decodeStringOrBlob(result.data)
                 if (data === null) throw new Error('')
                 const returnValue = new Response(data, result)

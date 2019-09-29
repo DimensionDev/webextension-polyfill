@@ -1,4 +1,4 @@
-import { Host } from '../RPC'
+import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { encodeStringOrBlob } from '../utils/StringOrBlob'
 
 const { createObjectURL, revokeObjectURL } = URL
@@ -23,7 +23,7 @@ function revokeObjectURLEnhanced(extensionID: string): (url: string) => void {
     return (url: string) => {
         revokeObjectURL(url)
         const id = getIDFromBlobURL(url)!
-        Host['URL.revokeObjectURL'](extensionID, id)
+        FrameworkRPC['URL.revokeObjectURL'](extensionID, id)
     }
 }
 
@@ -32,7 +32,7 @@ function createObjectURLEnhanced(extensionID: string): (object: any) => string {
         const url = createObjectURL(obj)
         const resourceID = getIDFromBlobURL(url)!
         if (obj instanceof Blob) {
-            encodeStringOrBlob(obj).then(blob => Host['URL.createObjectURL'](extensionID, resourceID, blob))
+            encodeStringOrBlob(obj).then(blob => FrameworkRPC['URL.createObjectURL'](extensionID, resourceID, blob))
         }
         return url
     }

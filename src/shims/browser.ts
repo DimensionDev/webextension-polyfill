@@ -1,9 +1,10 @@
-import { Host, ThisSideImplementation } from '../RPC'
+import { FrameworkRPC, FrameworkImplementation } from '../RPCs/framework-rpc'
 import { createEventListener } from '../utils/LocalMessages'
 import { createRuntimeSendMessage, sendMessageWithResponse } from './browser.message'
 import { Manifest } from '../Extensions'
 import { getIDFromBlobURL } from './URL.create+revokeObjectURL'
 import { useInternalStorage } from '../internal'
+import { internalRPC } from '../RPCs/internal-rpc'
 
 const originalConfirm = window.confirm
 /**
@@ -43,11 +44,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {
                 PartialImplemented(details, 'code', 'file', 'runAt')
-                await ThisSideImplementation['browser.tabs.executeScript'](
-                    extensionID,
-                    tabID === undefined ? -1 : tabID,
-                    details,
-                )
+                await internalRPC.executeContentScript(tabID!, extensionID, manifest, details)
                 return []
             },
             create: binding(extensionID, 'browser.tabs.create')(),
@@ -55,7 +52,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                 let t: number[]
                 if (!Array.isArray(tabID)) t = [tabID]
                 else t = tabID
-                await Promise.all(t.map(x => Host['browser.tabs.remove'](extensionID, x)))
+                await Promise.all(t.map(x => FrameworkRPC['browser.tabs.remove'](extensionID, x)))
             },
             query: binding(extensionID, 'browser.tabs.query')(),
             update: binding(extensionID, 'browser.tabs.update')(),
@@ -217,7 +214,7 @@ function binding<
     /** The definition of the WebExtensionAPI side */
     BrowserDef extends BrowserReference[Key],
     /** The definition of the Host side */
-    HostDef extends Host[Key],
+    HostDef extends FrameworkImplementation[Key],
     /** Arguments of the browser side */
     BrowserArgs extends Parameters<BrowserDef>,
     /** Return type of the browser side */
@@ -273,7 +270,7 @@ function binding<
             : HostReturn
         const noop = <T>(x?: T) => x as T
         const noopArgs = (...args: any[]) => args
-        const hostDefinition: (extensionID: string, ...args: HostArgs) => Promise<HostReturn> = Host[key] as any
+        const hostDefinition: (extensionID: string, ...args: HostArgs) => Promise<HostReturn> = FrameworkRPC[key] as any
         return ((async (...args: BrowserArgs): Promise<BrowserReturn> => {
             // ? Transform WebExtension API arguments to host arguments
             const hostArgs = (options.param || noopArgs)(...args) as HostArgs
@@ -291,7 +288,7 @@ function binding<
  *
  * key is in the host, result type is in the WebExtension.
  */
-type BrowserReference = { [key in keyof typeof Host]: (...args: unknown[]) => Promise<unknown> } & {
+type BrowserReference = { [key in keyof typeof FrameworkRPC]: (...args: unknown[]) => Promise<unknown> } & {
     'browser.downloads.download': typeof browser.downloads.download
     'browser.tabs.create': typeof browser.tabs.create
 }

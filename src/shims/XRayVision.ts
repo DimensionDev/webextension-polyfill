@@ -111,6 +111,7 @@ export class WebExtensionContentScriptEnvironment
      * @param manifest The manifest of the extension
      */
     constructor(public extensionID: string, public manifest: Manifest) {
+        console.log('[WebExtension] Content Script JS environment created.')
         PrepareWebAPIs(this.global)
         const browser = BrowserFactory(this.extensionID, this.manifest)
         Object.defineProperty(this.global, 'browser', {

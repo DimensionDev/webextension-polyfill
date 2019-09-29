@@ -1,4 +1,3 @@
-import { ThisSideImplementation } from '../RPC'
 type WebExtensionID = string
 type MessageID = string
 type PoolKeys =

@@ -24,6 +24,11 @@ if (!fs.existsSync('./dist/realm.js')) {
     realmSourceCode = realmSourceCode.replace(/require\(.+?\)/g, alwaysThrowRequire)
     realmSourceCode = realmSourceCode.replace(/typeof (exports|module|define)/g, '"undefined"')
 
+    realmSourceCode = realmSourceCode.replace(
+        'document.body.appendChild(iframe)',
+        'document.children[0].appendChild(iframe)',
+    )
+
     // Hack. Related links:
     // https://github.com/DimensionDev/realms-shim/commit/55963b0b26c92235123afb0a95c251e0f48fd59d
     // https://bugs.webkit.org/show_bug.cgi?id=195534

@@ -1,6 +1,6 @@
-import { StringOrBlob } from '../RPC'
+import { FrameworkStringOrBlob } from '../RPCs/framework-rpc'
 
-export function decodeStringOrBlob(val: StringOrBlob): Blob | string | ArrayBuffer | null {
+export function decodeStringOrBlob(val: FrameworkStringOrBlob): Blob | string | ArrayBuffer | null {
     if (val.type === 'text') return val.content
     if (val.type === 'blob') return new Blob([val.content], { type: val.mimeType })
     if (val.type === 'array buffer') {
@@ -8,7 +8,7 @@ export function decodeStringOrBlob(val: StringOrBlob): Blob | string | ArrayBuff
     }
     return null
 }
-export async function encodeStringOrBlob(val: Blob | string | ArrayBuffer): Promise<StringOrBlob> {
+export async function encodeStringOrBlob(val: Blob | string | ArrayBuffer): Promise<FrameworkStringOrBlob> {
     if (typeof val === 'string') return { type: 'text', content: val }
     if (val instanceof Blob) {
         const buffer = new Uint8Array(await new Response(val).arrayBuffer())

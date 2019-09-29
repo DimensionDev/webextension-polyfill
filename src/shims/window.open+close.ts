@@ -1,4 +1,4 @@
-import { Host } from '../RPC'
+import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { hasValidUserInteractive } from '../utils/UserInteractive'
 
 export function openEnhanced(extensionID: string): typeof open {
@@ -6,7 +6,7 @@ export function openEnhanced(extensionID: string): typeof open {
         if (!hasValidUserInteractive()) return null
         if ((target && target !== '_blank') || features || replace)
             console.warn('Unsupported open', url, target, features, replace)
-        Host['browser.tabs.create'](extensionID, {
+        FrameworkRPC['browser.tabs.create'](extensionID, {
             active: true,
             url,
         })
@@ -17,8 +17,8 @@ export function openEnhanced(extensionID: string): typeof open {
 export function closeEnhanced(extensionID: string): typeof close {
     return () => {
         if (!hasValidUserInteractive()) return
-        Host['browser.tabs.query'](extensionID, { active: true }).then(i =>
-            Host['browser.tabs.remove'](extensionID, i[0].id!),
+        FrameworkRPC['browser.tabs.query'](extensionID, { active: true }).then(i =>
+            FrameworkRPC['browser.tabs.remove'](extensionID, i[0].id!),
         )
     }
 }

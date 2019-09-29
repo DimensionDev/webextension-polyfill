@@ -1,4 +1,4 @@
-import { Host, ThisSideImplementation } from '../RPC'
+import { FrameworkRPC } from '../RPCs/framework-rpc'
 
 import { TwoWayMessagePromiseResolver, EventPools } from '../utils/LocalMessages'
 import { deepClone } from '../utils/deepClone'
@@ -29,7 +29,7 @@ export function sendMessageWithResponse<U>(
 ) {
     return new Promise<U>((resolve, reject) => {
         const messageID = Math.random().toString()
-        Host.sendMessage(extensionID, toExtensionID, tabId, messageID, {
+        FrameworkRPC.sendMessage(extensionID, toExtensionID, tabId, messageID, {
             type: 'message',
             data: message,
             response: false,
@@ -69,7 +69,7 @@ export function onNormalMessage(
                 result.then((data: unknown) => {
                     if (data === undefined || responseSend) return
                     responseSend = true
-                    Host.sendMessage(toExtensionID, extensionID, sender.tab!.id!, messageID, {
+                    FrameworkRPC.sendMessage(toExtensionID, extensionID, sender.tab!.id!, messageID, {
                         data,
                         response: true,
                         type: 'message',
@@ -89,13 +89,14 @@ export type InternalMessage =
           type: 'message'
       }
     | {
-          type: 'executeScript'
-      } & Parameters<ThisSideImplementation['browser.tabs.executeScript']>[2]
-    | {
           type: 'onWebNavigationChanged'
           // Other events seems impossible to implement
           status: 'onCommitted' | 'onDOMContentLoaded' | 'onCompleted' | 'onHistoryStateUpdated'
           location: string
+      }
+    | {
+          type: 'internal-rpc'
+          message: any
       }
 
 function sendResponseDeprecated(): any {

@@ -41,6 +41,13 @@ export async function registerWebExtension(
         environment = opt.env
         debugModeURL = opt.src
     }
+    console.debug(
+        `[WebExtension] Loading extension ${manifest.name}(${extensionID}) with manifest`,
+        manifest,
+        `and preloaded resource`,
+        preloadedResources,
+        `in ${environment} mode`,
+    )
     try {
         switch (environment) {
             case Environment.debugModeManagedPage:
@@ -57,6 +64,7 @@ export async function registerWebExtension(
                 await LoadBackgroundScript(manifest, extensionID, preloadedResources)
                 break
             case Environment.contentScript:
+                createContentScriptEnvironment(manifest, extensionID, preloadedResources, debugModeURL)
                 await untilDocumentReady()
                 await LoadContentScript(manifest, extensionID, preloadedResources)
                 break
@@ -102,13 +110,6 @@ function getContext(manifest: Manifest, extensionID: string, preloadedResources:
     } else {
         environment = Environment.contentScript
     }
-    console.debug(
-        `[WebExtension] Loading extension ${manifest.name}(${extensionID}) with manifest`,
-        manifest,
-        `and preloaded resource`,
-        preloadedResources,
-        `in ${environment} mode`,
-    )
     return environment
 }
 
@@ -276,7 +277,24 @@ export function RunInProtocolScope(extensionID: string, manifest: Manifest, sour
         eval(source)
     }
 }
-
+function createContentScriptEnvironment(
+    manifest: Manifest,
+    extensionID: string,
+    preloadedResources: Record<string, string>,
+    debugModePretendedURL?: string,
+) {
+    if (!registeredWebExtension.has(extensionID)) {
+        const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
+        if (debugModePretendedURL)
+            environment.global.location = createLocationProxy(extensionID, manifest, debugModePretendedURL)
+        const ext: WebExtension = {
+            manifest,
+            environment,
+            preloadedResources,
+        }
+        registeredWebExtension.set(extensionID, ext)
+    }
+}
 async function LoadContentScript(
     manifest: Manifest,
     extensionID: string,
@@ -303,17 +321,6 @@ var x = new XMLSerializer();
 var html = x.serializeToString(dom);
 document.write(html);">Remove script tags and go</button>
 `
-    }
-    if (!registeredWebExtension.has(extensionID)) {
-        const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
-        if (debugModePretendedURL)
-            environment.global.location = createLocationProxy(extensionID, manifest, debugModePretendedURL)
-        const ext: WebExtension = {
-            manifest,
-            environment,
-            preloadedResources,
-        }
-        registeredWebExtension.set(extensionID, ext)
     }
     for (const [index, content] of (manifest.content_scripts || []).entries()) {
         warningNotImplementedItem(content, index)

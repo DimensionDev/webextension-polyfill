@@ -1,7 +1,7 @@
 import { AsyncCall } from 'async-call-rpc'
-import { Host, ThisSideImplementation, SamePageDebugChannel } from '../RPC'
+import { FrameworkMayInvokeMethods, ThisSideImplementation, FrameworkImplementation } from '../RPCs/framework-rpc'
+import { SamePageDebugChannel } from '../RPCs/SamePageDebugChannel'
 import { useInternalStorage } from '../internal'
-import { getResourceAsync } from '../utils/Resources'
 import { isDebug, parseDebugModeURL } from './isDebugMode'
 import { debugModeURLRewrite } from './url-rewrite'
 
@@ -33,8 +33,8 @@ class CrossPageDebugChannel {
 }
 const origFetch = fetch
 interface MockedLocalService {
-    onMessage: ThisSideImplementation['onMessage']
-    onCommitted: ThisSideImplementation['browser.webNavigation.onCommitted']
+    onMessage: FrameworkMayInvokeMethods['onMessage']
+    onCommitted: FrameworkMayInvokeMethods['browser.webNavigation.onCommitted']
 }
 if (isDebug) {
     const mockHost = AsyncCall<MockedLocalService>(
@@ -53,7 +53,7 @@ if (isDebug) {
         const obj = parseDebugModeURL('', {} as any)
         mockHost.onCommitted({ tabId: myTabID, url: obj.src })
     }, 2000)
-    const host: Host = {
+    const host: FrameworkImplementation = {
         'URL.createObjectURL': log(void 0),
         'URL.revokeObjectURL': log(void 0),
         'browser.downloads.download': log(void 0),

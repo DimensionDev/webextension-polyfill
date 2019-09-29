@@ -16,7 +16,7 @@ jobs:
                       yarn build
             - store_artifacts:
                   path: dist/out.js
-                  destination: /WebExtension-shim.js
+                  destination: /webextension-shim.js
             - store_artifacts:
                   path: dist/typescript.js
                   destination: /typescript.js
