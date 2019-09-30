@@ -291,25 +291,27 @@ export const FrameworkRPC = AsyncCall<FrameworkImplementation>(ThisSideImplement
     messageChannel: isDebug ? new SamePageDebugChannel('client') : new iOSWebkitChannel(),
 })
 
-FrameworkRPC.sendMessage(reservedID, reservedID, null, Math.random() + '', {
-    type: 'onWebNavigationChanged',
-    status: 'onCommitted',
-    location: location.href,
-})
-if (typeof window === 'object') {
-    window.addEventListener('DOMContentLoaded', () => {
-        FrameworkRPC.sendMessage(reservedID, reservedID, null, Math.random() + '', {
-            type: 'onWebNavigationChanged',
-            status: 'onDOMContentLoaded',
-            location: location.href,
-        })
+if (location.protocol !== 'holoflows-extension') {
+    FrameworkRPC.sendMessage(reservedID, reservedID, null, Math.random() + '', {
+        type: 'onWebNavigationChanged',
+        status: 'onCommitted',
+        location: location.href,
     })
-    window.addEventListener('load', () => {
-        FrameworkRPC.sendMessage(reservedID, reservedID, null, Math.random() + '', {
-            type: 'onWebNavigationChanged',
-            status: 'onCompleted',
-            location: location.href,
+    if (typeof window === 'object') {
+        window.addEventListener('DOMContentLoaded', () => {
+            FrameworkRPC.sendMessage(reservedID, reservedID, null, Math.random() + '', {
+                type: 'onWebNavigationChanged',
+                status: 'onDOMContentLoaded',
+                location: location.href,
+            })
         })
-    })
-    // TODO: implements onHistoryStateUpdated event.
+        window.addEventListener('load', () => {
+            FrameworkRPC.sendMessage(reservedID, reservedID, null, Math.random() + '', {
+                type: 'onWebNavigationChanged',
+                status: 'onCompleted',
+                location: location.href,
+            })
+        })
+        // TODO: implements onHistoryStateUpdated event.
+    }
 }
