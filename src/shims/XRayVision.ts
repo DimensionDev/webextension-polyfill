@@ -124,6 +124,21 @@ export class WebExtensionContentScriptEnvironment
         this.global.fetch = createFetch(this.extensionID, window.fetch)
         this.global.open = openEnhanced(this.extensionID)
         this.global.close = closeEnhanced(this.extensionID)
+
+        function globalThisFix() {
+            var originalFunction = Function
+            function newFunction(...args: any[]) {
+                const fn = new originalFunction(...args)
+                return new Proxy(fn, {
+                    apply(a, b, c) {
+                        return Reflect.apply(a, b || globalThis, c)
+                    },
+                })
+            }
+            // @ts-ignore
+            globalThis.Function = newFunction
+        }
+        this.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
     }
 }
 /**

@@ -74,7 +74,8 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                     /** Host not accepting { a: 1 } as keys */
                     param(keys) {
                         if (Array.isArray(keys)) return [keys as string[]]
-                        if (typeof keys === 'object') {
+                        else if (typeof keys === 'string') return [keys]
+                        else if (typeof keys === 'object') {
                             if (keys === null) return [null]
                             return [Object.keys(keys)]
                         }
