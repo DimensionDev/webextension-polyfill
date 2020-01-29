@@ -80,7 +80,7 @@ export async function registerWebExtension(
             setTimeout(() => {
                 useInternalStorage(extensionID, o => {
                     const handlers = Array.from(installHandler.values()) as callback[]
-                    type callback = typeof browser.runtime.onInstalled.addListener extends ((...args: infer T) => any)
+                    type callback = typeof browser.runtime.onInstalled.addListener extends (...args: infer T) => any
                         ? T[0]
                         : never
                     ;[]
@@ -220,18 +220,20 @@ function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Mani
     } as Partial<typeof globalThis>)
 }
 
+/**
+ * Run code in holoflows-extension://extensionID/path
+ * @param extensionID Extension ID
+ * @param manifest Manifest
+ * @param source Source code
+ * @param currentPage Current page URL
+ */
 export function RunInProtocolScope(extensionID: string, manifest: Manifest, source: string, currentPage: string): void {
-    if (location.protocol === 'holoflows-extension:') {
-        const likeESModule = source.match('import') || source.match('export ')
-        const script = document.createElement('script')
-        script.type = likeESModule ? 'module' : 'text/javascript'
-        script.innerHTML = source
-        script.defer = true
-        document.body.appendChild(script)
-        return
+    const esModuleLike = source.match('import') || source.match('export ')
+    if (location.protocol === 'holoflows-extension:' || esModuleLike) {
+        return runDirectly(source)
     }
     if (!isDebug) throw new TypeError('Run in the wrong scope')
-    if (source.indexOf('browser')) {
+    if (source.indexOf('location')) {
         const indirectEval = Math.random() > -1 ? eval : () => {}
         const f = indirectEval(`(function(_){with(_){${source}}})`)
         const _ = (x: keyof typeof Reflect) => (target: any, ...any: any[]) =>
@@ -274,7 +276,21 @@ export function RunInProtocolScope(extensionID: string, manifest: Manifest, sour
         const globalProxy: typeof window = new Proxy({}, globalProxyTrap) as any
         f(globalProxy)
     } else {
-        eval(source)
+        return runDirectly(source)
+    }
+    function runDirectly(source: string) {
+        if (isDebug) {
+            const base = document.createElement('base')
+            base.href = '/extension/' + extensionID + '/'
+            document.head.appendChild(base)
+            console.log('ESModule transform is not implemented yet.')
+        }
+        const script = document.createElement('script')
+        script.type = esModuleLike ? 'module' : 'text/javascript'
+        script.innerHTML = source
+        script.defer = true
+        document.body.appendChild(script)
+        return
     }
 }
 function createContentScriptEnvironment(
