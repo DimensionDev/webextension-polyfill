@@ -1,12 +1,12 @@
 import typescript from 'rollup-plugin-typescript2'
-import commonjs from 'rollup-plugin-commonjs'
-import nodeResolve from 'rollup-plugin-node-resolve'
+import nodeResolve from '@rollup/plugin-node-resolve'
+import commonjs from '@rollup/plugin-commonjs'
 import * as Rollup from 'rollup'
 
 import fs from 'fs'
 import uglify from 'uglify-es'
 
-const alwaysThrowRequire = 'new Symbol()'
+const alwaysThrowRequire = 'Symbol()'
 if (!fs.existsSync('./dist')) fs.mkdirSync('./dist')
 if (!fs.existsSync('./dist/typescript.js')) {
     let typescriptSourceCode = fs.readFileSync(require.resolve('typescript'), 'utf-8')
@@ -14,10 +14,10 @@ if (!fs.existsSync('./dist/typescript.js')) {
     typescriptSourceCode = typescriptSourceCode.replace(/typeof module !== "undefined"/g, 'false')
     typescriptSourceCode = typescriptSourceCode.replace(/typeof (process|ChakraHost|require)/g, '"undefined"')
 
-    const ts = uglify.minify(typescriptSourceCode, { compress: true })
+    // const ts = uglify.minify(typescriptSourceCode, { compress: true })
     console.log('Writing typescript')
-    if (ts.error) throw ts.error
-    fs.writeFileSync('./dist/typescript.js', ts.code)
+    // if (ts.error) throw ts.error
+    fs.writeFileSync('./dist/typescript.js', typescriptSourceCode)
 }
 if (!fs.existsSync('./dist/realm.js')) {
     let realmSourceCode = fs.readFileSync('./node_modules/realms-shim/dist/realms-shim.umd.js', 'utf-8')
@@ -30,17 +30,12 @@ if (!fs.existsSync('./dist/realm.js')) {
     )
 
     // Hack. Related links:
-    // https://github.com/DimensionDev/realms-shim/commit/55963b0b26c92235123afb0a95c251e0f48fd59d
-    // https://bugs.webkit.org/show_bug.cgi?id=195534
-    realmSourceCode = realmSourceCode.replace('const alwaysThrowHandler =', 'const alwaysThrowHandler = freeze({});')
-
-    // Hack. Related links:
     // https://github.com/Agoric/realms-shim/issues/61
 
     realmSourceCode = realmSourceCode.replace(
-        'function callAndWrapError(target, ...args) {',
-        `function callAndWrapError(target, ...args) { return target(...args) }
-    function callAndWrapErrorOld(target, ...args) {`,
+        'function callAndWrapError(target, args) {',
+        `function callAndWrapError(target, args) { return target(...args) }
+    function callAndWrapErrorOld(target, args) {`,
     )
 
     // Hack. Related links:

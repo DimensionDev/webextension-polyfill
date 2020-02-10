@@ -52,6 +52,7 @@ export async function registerWebExtension(
         switch (environment) {
             case Environment.debugModeManagedPage:
                 if (!isDebug) throw new TypeError('Invalid state')
+                createContentScriptEnvironment(manifest, extensionID, preloadedResources, debugModeURL)
                 LoadContentScript(manifest, extensionID, preloadedResources, debugModeURL)
                 break
             case Environment.protocolPage:

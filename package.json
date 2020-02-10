@@ -5,18 +5,18 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "async-call-rpc": "^1.0.0",
-    "realms-shim": "^1.1.0",
-    "typescript": "^3.6.3",
-    "uglify-es": "^3.3.9",
-    "web-ext-types": "^3.1.0"
+    "async-call-rpc": "^1.0.4",
+    "realms-shim": "^1.2.1",
+    "typescript": "^3.7.5",
+    "web-ext-types": "^3.2.1"
   },
   "devDependencies": {
-    "react-devtools": "^3.6.1",
-    "rollup": "^1.16.2",
-    "rollup-plugin-commonjs": "^10.0.0",
-    "rollup-plugin-node-resolve": "^5.0.4",
-    "rollup-plugin-typescript2": "^0.21.2"
+    "@rollup/plugin-commonjs": "^11.0.2",
+    "@rollup/plugin-node-resolve": "^7.1.1",
+    "react-devtools": "^4.4.0",
+    "rollup": "^1.31.0",
+    "rollup-plugin-typescript2": "^0.25.3",
+    "uglify-es": "^3.3.9"
   },
   "scripts": {
     "start": "rollup -c -w",
