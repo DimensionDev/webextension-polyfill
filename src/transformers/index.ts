@@ -8,7 +8,8 @@ export function transformAST(src: string) {
         },
         reportDiagnostics: true,
         compilerOptions: {
-            target: ts.ScriptTarget.ES2017,
+            // ? we're assuming the developer has ran the transformer so we are not going to run any downgrade for them
+            target: ts.ScriptTarget.ESNext,
             removeComments: true,
         },
     })

@@ -1,10 +1,10 @@
-import ts from 'typescript'
+import ts, { SourceFile } from 'typescript'
 /**
  * Transform any `this` to `(typeof this === "undefined" ? globalThis : this)`
  * @param context
  */
 export function thisTransformation(context: ts.TransformationContext) {
-    function visit<T extends ts.Node>(node: T): T {
+    function visit(node: ts.Node): ts.VisitResult<ts.Node> {
         if (ts.isSourceFile(node)) {
             if (isInStrictMode(node.getChildAt(0) as ts.SyntaxList)) return node
         } else if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node)) {
@@ -15,7 +15,7 @@ export function thisTransformation(context: ts.TransformationContext) {
                 if (isInStrictMode(syntaxList)) return node
             }
         } else if (node.kind === ts.SyntaxKind.ThisKeyword) {
-            return (ts.createParen(
+            return ts.createParen(
                 ts.createConditional(
                     ts.createBinary(
                         ts.createTypeOf(ts.createThis()),
@@ -25,7 +25,7 @@ export function thisTransformation(context: ts.TransformationContext) {
                     ts.createIdentifier('globalThis'),
                     ts.createThis(),
                 ),
-            ) as unknown) as T
+            )
         }
         return ts.visitEachChild(node, child => visit(child), context)
     }
@@ -35,7 +35,7 @@ export function thisTransformation(context: ts.TransformationContext) {
         } catch {
             return node
         }
-    }) as typeof visit
+    }) as (node: SourceFile) => SourceFile
 }
 function isInStrictMode(node: ts.SyntaxList) {
     const first = node.getChildAt(0)
