@@ -14,10 +14,10 @@ if (!fs.existsSync('./dist/typescript.js')) {
     typescriptSourceCode = typescriptSourceCode.replace(/typeof module !== "undefined"/g, 'false')
     typescriptSourceCode = typescriptSourceCode.replace(/typeof (process|ChakraHost|require)/g, '"undefined"')
 
-    // const ts = uglify.minify(typescriptSourceCode, { compress: true })
+    const ts = uglify.minify(typescriptSourceCode, { compress: true })
     console.log('Writing typescript')
-    // if (ts.error) throw ts.error
-    fs.writeFileSync('./dist/typescript.js', typescriptSourceCode)
+    if (ts.error) throw ts.error
+    fs.writeFileSync('./dist/typescript.js', ts.code)
 }
 if (!fs.existsSync('./dist/realm.js')) {
     let realmSourceCode = fs.readFileSync('./node_modules/realms-shim/dist/realms-shim.umd.js', 'utf-8')
