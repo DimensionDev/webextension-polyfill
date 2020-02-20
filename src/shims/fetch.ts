@@ -3,7 +3,8 @@ import { decodeStringOrBlob } from '../utils/StringOrBlob'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { isDebug } from '../debugger/isDebugMode'
 
-export function createFetch(extensionID: string, origFetch: typeof fetch): typeof fetch {
+const origFetch = window.fetch
+export function createFetch(extensionID: string): typeof fetch {
     return new Proxy(origFetch, {
         async apply(origFetch, thisArg, [requestInfo, requestInit]: Parameters<typeof fetch>) {
             const request = new Request(requestInfo, requestInit)

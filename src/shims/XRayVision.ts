@@ -21,6 +21,7 @@ import { enhanceURL } from './URL.create+revokeObjectURL'
 import { createFetch } from './fetch'
 import { openEnhanced, closeEnhanced } from './window.open+close'
 import { transformAST } from '../transformers'
+import { SystemJSRealm } from '../realms'
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -37,9 +38,13 @@ function getPrototypeChain(o: any, _: any[] = []): any[] {
 const PrepareWebAPIs = (() => {
     // ? replace Function with polluted version by Realms
     // ! this leaks the sandbox!
-    Object.defineProperty(Object.getPrototypeOf(() => {}), 'constructor', {
-        value: globalThis.Function,
-    })
+    Object.defineProperty(
+        Object.getPrototypeOf(() => {}),
+        'constructor',
+        {
+            value: globalThis.Function,
+        },
+    )
     const realWindow = window
     const webAPIs = Object.getOwnPropertyDescriptors(window)
     Reflect.deleteProperty(webAPIs, 'window')
@@ -81,50 +86,30 @@ const PrepareWebAPIs = (() => {
 /**
  * Execution environment of ContentScript
  */
-export class WebExtensionContentScriptEnvironment
-    implements RealmInstance<typeof globalThis & { browser: typeof browser }> {
-    private realm = Realm.makeRootRealm({
-        sloppyGlobals: true,
-        transforms: [
-            {
-                rewrite: ctx => {
-                    ctx.src = transformAST(ctx.src)
-                    return ctx
-                },
-            },
-        ],
-    })
-    get global() {
-        return this.realm.global
-    }
-    readonly [Symbol.toStringTag] = 'Realm'
-    /**
-     * Evaluate a string in the content script environment
-     * @param sourceText Source text
-     */
-    evaluate(sourceText: string) {
-        return this.realm.evaluate(sourceText)
-    }
+export class WebExtensionContentScriptEnvironment extends SystemJSRealm {
     /**
      * Create a new running extension for an content script.
      * @param extensionID The extension ID
      * @param manifest The manifest of the extension
      */
-    constructor(public extensionID: string, public manifest: Manifest) {
-        console.log('[WebExtension] Content Script JS environment created.')
+    constructor(public extensionID: string, public manifest: Manifest, private locationProxy?: Location) {
+        super()
+    }
+    init() {
+        console.log('[WebExtension] Hosted JS environment created.')
         PrepareWebAPIs(this.global)
         const browser = BrowserFactory(this.extensionID, this.manifest)
         Object.defineProperty(this.global, 'browser', {
             // ? Mozilla's polyfill may overwrite this. Figure this out.
             get: () => browser,
-            set: x => false,
+            set: () => false,
         })
         this.global.browser = BrowserFactory(this.extensionID, this.manifest)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
-        this.global.fetch = createFetch(this.extensionID, window.fetch)
+        this.global.fetch = createFetch(this.extensionID)
         this.global.open = openEnhanced(this.extensionID)
         this.global.close = closeEnhanced(this.extensionID)
-
+        if (this.locationProxy) this.global.location = this.locationProxy
         function globalThisFix() {
             var originalFunction = Function
             function newFunction(...args: any[]) {
@@ -138,8 +123,9 @@ export class WebExtensionContentScriptEnvironment
             // @ts-ignore
             globalThis.Function = newFunction
         }
-        this.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
+        this.esRealm.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
     }
+    protected fetch = createFetch(this.extensionID)
 }
 /**
  * Many methods on `window` requires `this` points to a Window object

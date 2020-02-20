@@ -5,8 +5,10 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
+    "@types/systemjs": "^6.1.0",
     "async-call-rpc": "^1.0.4",
     "realms-shim": "^1.2.1",
+    "systemjs": "^6.2.3",
     "typescript": "^3.7.5",
     "web-ext-types": "^3.2.1"
   },

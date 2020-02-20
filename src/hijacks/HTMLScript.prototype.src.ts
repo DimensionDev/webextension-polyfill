@@ -15,11 +15,12 @@ export function writeHTMLScriptElementSrc(
         set(this: HTMLScriptElement, path) {
             console.debug('script src=', path)
             const preloaded = getResource(extensionID, preloadedResources, path)
-            if (preloaded) RunInProtocolScope(extensionID, manifest, preloaded, currentPage)
+            const kind = this.type === 'module' ? 'module' : 'script'
+            if (preloaded) RunInProtocolScope(extensionID, manifest, { source: preloaded, path }, currentPage, kind)
             else
                 getResourceAsync(extensionID, preloadedResources, path)
                     .then(code => code || Promise.reject<string>('Loading resource failed'))
-                    .then(code => RunInProtocolScope(extensionID, manifest, code, currentPage))
+                    .then(source => RunInProtocolScope(extensionID, manifest, { source, path }, currentPage, kind))
                     .catch(e => console.error(`Failed when loading resource`, path, e))
             this.dataset.src = path
             return true

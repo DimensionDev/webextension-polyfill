@@ -73,6 +73,7 @@ export async function registerWebExtension(
                 console.warn(`[WebExtension] unknown running environment ${environment}`)
         }
     } catch (e) {
+        if (isDebug) throw e
         console.error(e)
     }
     if (environment === Environment.backgroundScript) {
@@ -169,7 +170,7 @@ It's running in the background page mode`
             const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
             if (preloaded) {
                 // ? Run it in global scope.
-                RunInProtocolScope(extensionID, manifest, preloaded, currentPage)
+                await RunInProtocolScope(extensionID, manifest, { source: preloaded, path }, currentPage, 'script')
             } else {
                 console.error(`[WebExtension] Background scripts not found for ${manifest.name}: ${path}`)
             }
@@ -188,23 +189,30 @@ async function loadProtocolPageToCurrentPage(
     const parser = new DOMParser()
     const dom = parser.parseFromString(html, 'text/html')
     const scripts = await Promise.all(
-        Array.from(dom.querySelectorAll('script')).map(async script => {
-            const path = new URL(script.src).pathname
-            script.remove()
-            return [path, await getResourceAsync(extensionID, preloadedResources, path)]
-        }),
+        Array.from(dom.querySelectorAll('script')).map<Promise<[string, string | undefined, 'script' | 'module']>>(
+            async script => {
+                const path = new URL(script.src).pathname
+                script.remove()
+                return [
+                    path,
+                    await getResourceAsync(extensionID, preloadedResources, path),
+                    script.type === 'module' ? 'module' : 'script',
+                ]
+            },
+        ),
     )
     for (const c of document.head.children) c.remove()
     for (const c of dom.head.children) document.head.appendChild(c)
     for (const c of document.body.children) c.remove()
     for (const c of dom.body.children) document.body.appendChild(c)
-    for (const [path, script] of scripts) {
+    for (const [path, script, kind] of scripts) {
         if (script)
-            RunInProtocolScope(
+            await RunInProtocolScope(
                 extensionID,
                 manifest,
-                script,
+                { source: script, path },
                 new URL(page, 'holoflows-extension://' + extensionID + '/').toJSON(),
+                kind,
             )
         else console.error('Resource', path, 'not found')
     }
@@ -214,7 +222,7 @@ function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Mani
     rewriteWorker(extensionID)
     Object.assign(window, {
         browser: BrowserFactory(extensionID, manifest),
-        fetch: createFetch(extensionID, window.fetch),
+        fetch: createFetch(extensionID),
         URL: enhanceURL(URL, extensionID),
         open: openEnhanced(extensionID),
         close: closeEnhanced(extensionID),
@@ -225,74 +233,39 @@ function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Mani
  * Run code in holoflows-extension://extensionID/path
  * @param extensionID Extension ID
  * @param manifest Manifest
- * @param source Source code
+ * @param code Source code
  * @param currentPage Current page URL
  */
-export function RunInProtocolScope(extensionID: string, manifest: Manifest, source: string, currentPage: string): void {
-    const esModuleLike = source.match('import') || source.match('export ')
-    if (location.protocol === 'holoflows-extension:' || esModuleLike) {
-        return runDirectly(source)
-    }
-    if (!isDebug) throw new TypeError('Run in the wrong scope')
-    if (source.indexOf('location')) {
-        const indirectEval = Math.random() > -1 ? eval : () => {}
-        const f = indirectEval(`(function(_){with(_){${source}}})`)
-        const _ = (x: keyof typeof Reflect) => (target: any, ...any: any[]) =>
-            Reflect.apply(Reflect[x], null, [window, ...any])
-        const safeGetOwnPropertyDescriptor = (obj: any, key: any) => {
-            const orig = Reflect.getOwnPropertyDescriptor(obj, key)
-            if (!orig) return undefined
-            return { ...orig, configurable: true }
-        }
-        const { env, src } = parseDebugModeURL(extensionID, manifest)
-        const locationProxy = createLocationProxy(extensionID, manifest, currentPage || src)
-        const globalProxyTrap = new Proxy(
-            {
-                get(target: any, key: any) {
-                    if (key === 'window') return globalProxy
-                    if (key === 'globalThis') return globalProxy
-                    if (key === 'location') return locationProxy
-                    const obj = window[key] as any
-                    if (typeof obj === 'function') {
-                        const desc2 = Object.getOwnPropertyDescriptors(obj)
-                        function f(...args: any[]) {
-                            if (new.target) return Reflect.construct(obj, args, new.target)
-                            return Reflect.apply(obj, window, args)
-                        }
-                        Object.defineProperties(f, desc2)
-                        Object.setPrototypeOf(f, Object.getPrototypeOf(obj))
-                        return f
-                    }
-                    return obj
-                },
-                getOwnPropertyDescriptor: safeGetOwnPropertyDescriptor,
-            } as ProxyHandler<any>,
-            {
-                get(target: any, key: any) {
-                    if (target[key]) return target[key]
-                    return _(key)
-                },
-            },
-        )
-        const globalProxy: typeof window = new Proxy({}, globalProxyTrap) as any
-        f(globalProxy)
-    } else {
-        return runDirectly(source)
-    }
-    function runDirectly(source: string) {
-        if (isDebug) {
-            const base = document.createElement('base')
-            base.href = '/extension/' + extensionID + '/'
-            document.head.appendChild(base)
-            console.log('ESModule transform is not implemented yet.')
-        }
+export async function RunInProtocolScope(
+    extensionID: string,
+    manifest: Manifest,
+    code: { source: string; path?: string },
+    currentPage: string,
+    kind: 'module' | 'script',
+): Promise<void> {
+    const esModuleLike = kind === 'module'
+    if (location.protocol === 'holoflows-extension:') {
         const script = document.createElement('script')
         script.type = esModuleLike ? 'module' : 'text/javascript'
-        script.innerHTML = source
+        if (code.path) script.src = code.path
+        else script.innerHTML = code.source
         script.defer = true
         document.body.appendChild(script)
         return
     }
+    if (!isDebug) throw new TypeError('Run in the wrong scope')
+
+    const { src } = parseDebugModeURL(extensionID, manifest)
+    const locationProxy = createLocationProxy(extensionID, manifest, currentPage || src)
+    // ? Transform ESM into SystemJS to run in debug mode.
+    const _: WebExtensionContentScriptEnvironment =
+        Reflect.get(globalThis, 'env') ||
+        (console.log('Debug by globalThis.env'),
+        new WebExtensionContentScriptEnvironment(extensionID, manifest, locationProxy))
+    Object.assign(globalThis, { env: _ })
+    if (code.path && esModuleLike) {
+        await _.import(code.path, currentPage)
+    } else _.evaluate(code.source)
 }
 function createContentScriptEnvironment(
     manifest: Manifest,

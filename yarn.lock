@@ -58,6 +58,11 @@
   dependencies:
     "@types/node" "*"
 
+"@types/systemjs@^6.1.0":
+  version "6.1.0"
+  resolved "https://registry.yarnpkg.com/@types/systemjs/-/systemjs-6.1.0.tgz#eb92e3181391b6f49b8310077fe65bfa3db9392a"
+  integrity sha512-akhlviqwowzRNiz3ooAbkjvyMO8cikBqap9z/0yfvMAb6vIsp91Rfox67qtgIhZosWP01MVSTwsgSFYWo4SWQA==
+
 acorn@^7.1.0:
   version "7.1.0"
   resolved "https://registry.yarnpkg.com/acorn/-/acorn-7.1.0.tgz#949d36f2c292535da602283586c2477c57eb2d6c"
@@ -1586,6 +1591,11 @@ supports-color@^5.3.0:
   integrity sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==
   dependencies:
     has-flag "^3.0.0"
+
+systemjs@^6.2.3:
+  version "6.2.3"
+  resolved "https://registry.yarnpkg.com/systemjs/-/systemjs-6.2.3.tgz#4a3dd0e832b4be0516bfb947e1354e81d1e2c05d"
+  integrity sha512-2ic0xO7gnFJmw/wqXU71oXNxSp9u8bNmDeP61STh987dgROiAn4noESJE9WPNdy5EgS/fGLmHC5OjKOE5be1qg==
 
 term-size@^1.2.0:
   version "1.2.0"

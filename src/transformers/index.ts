@@ -1,17 +1,44 @@
 import ts from 'typescript'
 import { thisTransformation } from './this-transformer'
+import { systemjsNameEscapeTransformer } from './systemjs-transformer'
 
-export function transformAST(src: string) {
+const scriptCache = new Map<string, string>()
+const moduleCache = new Map<string, string>()
+/**
+ * For scripts, we treat it as a module with no static import/export.
+ */
+export function transformAST(src: string, kind: 'script' | 'module'): string {
+    const cache = kind === 'module' ? moduleCache : scriptCache
+    if (cache.has(src)) return cache.get(src)!
+    // TODO: throw for static import/export
+    // TODO: Add a ghost import declaration to force ts transform it as a SystemJS module
+    const scriptBefore = undefined
+    // TODO: Remove the ghost import dependencies in the result SystemJS code
+    // TODO: Shadow the name 'System' to realm.global.System
+    const scriptAfter = [thisTransformation, systemjsNameEscapeTransformer]
+    // TODO: Add a ghost import declaration to force ts transform it as a SystemJS module
+    const moduleBefore = undefined
+    // TODO: Remove the ghost import dependencies in the result SystemJS code
+    // TODO: Shadow the name 'System' to realm.global.System
+    const moduleAfter = [systemjsNameEscapeTransformer]
     const out = ts.transpileModule(src, {
         transformers: {
-            after: [thisTransformation],
+            before: kind === 'script' ? scriptBefore : moduleBefore,
+            after: kind === 'script' ? scriptAfter : moduleAfter,
         },
         reportDiagnostics: true,
         compilerOptions: {
             // ? we're assuming the developer has ran the transformer so we are not going to run any downgrade for them
             target: ts.ScriptTarget.ESNext,
+            // ? Also use System in script type therefore the dynamic import will work
+            module: ts.ModuleKind.System,
+            // ? A comment in React dev will make a false positive on realms checker
             removeComments: true,
+            inlineSourceMap: true,
+            inlineSources: true,
         },
+        // ? make ts syntax invalid
+        fileName: 'file.js',
     })
     const error = []
     for (const err of out.diagnostics || []) {
@@ -40,5 +67,6 @@ export function transformAST(src: string) {
         error.push(new SyntaxError(errText))
     }
     if (error[0]) throw error[0]
+    cache.set(src, out.outputText)
     return out.outputText
 }
