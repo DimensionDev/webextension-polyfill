@@ -7,10 +7,10 @@ const moduleCache = new Map<string, string>()
 /**
  * For scripts, we treat it as a module with no static import/export.
  */
-export function transformAST(src: string, kind: 'script' | 'module'): string {
+export function transformAST(src: string, kind: 'script' | 'module', path: string): string {
     const cache = kind === 'module' ? moduleCache : scriptCache
     if (cache.has(src)) return cache.get(src)!
-    // TODO: throw for static import/export
+    // TODO: throw for static import/export and import.meta
     // TODO: Add a ghost import declaration to force ts transform it as a SystemJS module
     const scriptBefore = undefined
     // TODO: Remove the ghost import dependencies in the result SystemJS code
@@ -21,6 +21,13 @@ export function transformAST(src: string, kind: 'script' | 'module'): string {
     // TODO: Remove the ghost import dependencies in the result SystemJS code
     // TODO: Shadow the name 'System' to realm.global.System
     const moduleAfter = [systemjsNameEscapeTransformer]
+    function getSourcePath(): { sourceRoot?: string; fileName: string } {
+        const _ = path.split('/')
+        const filename = _.pop()!
+        const sourceRoot = _.join('/')
+        return { fileName: filename, sourceRoot }
+    }
+    const { fileName, sourceRoot } = getSourcePath()
     const out = ts.transpileModule(src, {
         transformers: {
             before: kind === 'script' ? scriptBefore : moduleBefore,
@@ -36,9 +43,9 @@ export function transformAST(src: string, kind: 'script' | 'module'): string {
             removeComments: true,
             inlineSourceMap: true,
             inlineSources: true,
+            sourceRoot,
         },
-        // ? make ts syntax invalid
-        fileName: 'file.js',
+        fileName,
     })
     const error = []
     for (const err of out.diagnostics || []) {

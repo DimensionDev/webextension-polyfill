@@ -70,7 +70,7 @@ const internalRPCLocalImplementation: InternalRPCMethods = {
     async executeContentScript(targetTabID, extensionID, manifest, options) {
         console.debug('[WebExtension] requested to inject code', options)
         const ext = registeredWebExtension.get(extensionID)!
-        if (options.code) ext.environment.evaluate(options.code)
+        if (options.code) ext.environment.evaluateInlineScript(options.code)
         else if (options.file)
             loadContentScript(
                 extensionID,

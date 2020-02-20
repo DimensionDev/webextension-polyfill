@@ -19,14 +19,14 @@ if (isDebug) {
         fetch('/extension/' + id + '/manifest.json')
             .then(x => x.text())
             .then(x => {
-                console.log('Loading test WebExtension')
+                console.log('Loading test WebExtension. Use globalThis.exts to access env')
                 Object.assign(globalThis, {
-                    a: registerWebExtension,
-                    b: WebExtensionContentScriptEnvironment,
+                    registerWebExtension,
+                    WebExtensionContentScriptEnvironment,
                 })
                 return registerWebExtension(id, JSON.parse(x))
             })
-            .then(v => Object.assign(globalThis, { c: v })),
+            .then(v => Object.assign(globalThis, { exts: v })),
     )
 }
 

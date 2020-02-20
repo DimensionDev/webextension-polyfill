@@ -94,8 +94,6 @@ export class WebExtensionContentScriptEnvironment extends SystemJSRealm {
      */
     constructor(public extensionID: string, public manifest: Manifest, private locationProxy?: Location) {
         super()
-    }
-    init() {
         console.log('[WebExtension] Hosted JS environment created.')
         PrepareWebAPIs(this.global)
         const browser = BrowserFactory(this.extensionID, this.manifest)

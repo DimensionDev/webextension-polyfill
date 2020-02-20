@@ -13,9 +13,13 @@ const originalConfirm = window.confirm
  * @param manifest - Manifest of the extension
  */
 export function BrowserFactory(extensionID: string, manifest: Manifest): browser {
+    if (!extensionID) throw new TypeError()
     const implementation: Partial<browser> = {
         downloads: NotImplementedProxy<typeof browser.downloads>({
-            download: binding(extensionID, 'browser.downloads.download')({
+            download: binding(
+                extensionID,
+                'browser.downloads.download',
+            )({
                 param(options) {
                     let { url, filename } = options
                     if (getIDFromBlobURL(url)) {
@@ -40,6 +44,8 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
             onMessage: createEventListener(extensionID, 'browser.runtime.onMessage'),
             sendMessage: createRuntimeSendMessage(extensionID),
             onInstalled: createEventListener(extensionID, 'browser.runtime.onInstall'),
+            // TODO: is it?
+            id: extensionID,
         }),
         tabs: NotImplementedProxy<typeof browser.tabs>({
             async executeScript(tabID, details) {
@@ -70,7 +76,10 @@ export function BrowserFactory(extensionID: string, manifest: Manifest): browser
                 clear: binding(extensionID, 'browser.storage.local.clear')(),
                 remove: binding(extensionID, 'browser.storage.local.remove')(),
                 set: binding(extensionID, 'browser.storage.local.set')(),
-                get: binding(extensionID, 'browser.storage.local.get')({
+                get: binding(
+                    extensionID,
+                    'browser.storage.local.get',
+                )({
                     /** Host not accepting { a: 1 } as keys */
                     param(keys) {
                         if (Array.isArray(keys)) return [keys as string[]]

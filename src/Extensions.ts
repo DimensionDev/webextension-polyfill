@@ -243,10 +243,10 @@ export async function RunInProtocolScope(
     currentPage: string,
     kind: 'module' | 'script',
 ): Promise<void> {
-    const esModuleLike = kind === 'module'
+    const esModule = kind === 'module'
     if (location.protocol === 'holoflows-extension:') {
         const script = document.createElement('script')
-        script.type = esModuleLike ? 'module' : 'text/javascript'
+        script.type = esModule ? 'module' : 'text/javascript'
         if (code.path) script.src = code.path
         else script.innerHTML = code.source
         script.defer = true
@@ -263,9 +263,13 @@ export async function RunInProtocolScope(
         (console.log('Debug by globalThis.env'),
         new WebExtensionContentScriptEnvironment(extensionID, manifest, locationProxy))
     Object.assign(globalThis, { env: _ })
-    if (code.path && esModuleLike) {
-        await _.import(code.path, currentPage)
-    } else _.evaluate(code.source)
+    if (code.path) {
+        if (esModule) await _.evaluateModule(code.path, currentPage)
+        else await _.evaluateScript(code.path, currentPage)
+    } else {
+        if (esModule) await _.evaluateInlineModule(code.source)
+        else await _.evaluateInlineScript(code.source)
+    }
 }
 function createContentScriptEnvironment(
     manifest: Manifest,
@@ -342,7 +346,7 @@ export async function loadContentScript(
     for (const path of content.js || []) {
         const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
         if (preloaded) {
-            environment.evaluate(preloaded)
+            await environment.evaluateInlineScript(preloaded)
         } else {
             console.error(`[WebExtension] Content scripts not found for ${manifest.name}: ${path}`)
         }
