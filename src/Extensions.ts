@@ -9,7 +9,7 @@ import { EventPools } from './utils/LocalMessages'
 import { reservedID, useInternalStorage } from './internal'
 import { isDebug, parseDebugModeURL } from './debugger/isDebugMode'
 import { writeHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
-import { rewriteWorker } from './hijacks/Worker.prototype.constructor'
+import { enhancedWorker } from './hijacks/Worker.prototype.constructor'
 import { createLocationProxy } from './hijacks/location'
 
 export type WebExtensionID = string
@@ -219,13 +219,13 @@ async function loadProtocolPageToCurrentPage(
 }
 
 function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Manifest) {
-    rewriteWorker(extensionID)
     Object.assign(window, {
         browser: BrowserFactory(extensionID, manifest, Object.prototype),
         fetch: createFetch(extensionID),
         URL: enhanceURL(URL, extensionID),
         open: openEnhanced(extensionID),
         close: closeEnhanced(extensionID),
+        Worker: enhancedWorker(extensionID),
     } as Partial<typeof globalThis>)
 }
 
@@ -278,9 +278,11 @@ function createContentScriptEnvironment(
     debugModePretendedURL?: string,
 ) {
     if (!registeredWebExtension.has(extensionID)) {
-        const environment = new WebExtensionContentScriptEnvironment(extensionID, manifest)
-        if (debugModePretendedURL)
-            environment.global.location = createLocationProxy(extensionID, manifest, debugModePretendedURL)
+        const environment = new WebExtensionContentScriptEnvironment(
+            extensionID,
+            manifest,
+            debugModePretendedURL ? createLocationProxy(extensionID, manifest, debugModePretendedURL) : undefined,
+        )
         const ext: WebExtension = {
             manifest,
             environment,

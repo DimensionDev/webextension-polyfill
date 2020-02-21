@@ -51,6 +51,8 @@ if (isDebug) {
     const myTabID = Math.random()
     setTimeout(() => {
         const obj = parseDebugModeURL('', {} as any)
+        // webNavigation won't sent holoflows-extension pages.
+        if (obj.src.startsWith('holoflows-')) return
         mockHost.onCommitted({ tabId: myTabID, url: obj.src })
     }, 2000)
     const host: FrameworkImplementation = {

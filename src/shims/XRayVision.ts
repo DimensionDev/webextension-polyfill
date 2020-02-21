@@ -20,8 +20,8 @@ import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
 import { createFetch } from './fetch'
 import { openEnhanced, closeEnhanced } from './window.open+close'
-import { transformAST } from '../transformers'
 import { SystemJSRealm } from '../realms'
+import { enhancedWorker } from '../hijacks/Worker.prototype.constructor'
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -102,12 +102,13 @@ export class WebExtensionContentScriptEnvironment extends SystemJSRealm {
             get: () => browser,
             set: () => false,
         })
-        this.global.browser = BrowserFactory(this.extensionID, this.manifest, this.global.Object.prototype)
-        this.global.URL = enhanceURL(this.global.URL, this.extensionID)
-        this.global.fetch = createFetch(this.extensionID)
-        this.global.open = openEnhanced(this.extensionID)
-        this.global.close = closeEnhanced(this.extensionID)
-        if (this.locationProxy) this.global.location = this.locationProxy
+        this.global.browser = BrowserFactory(extensionID, manifest, this.global.Object.prototype)
+        this.global.URL = enhanceURL(this.global.URL, extensionID)
+        this.global.fetch = createFetch(extensionID)
+        this.global.open = openEnhanced(extensionID)
+        this.global.close = closeEnhanced(extensionID)
+        this.global.Worker = enhancedWorker(extensionID)
+        if (locationProxy) this.global.location = locationProxy
         function globalThisFix() {
             var originalFunction = Function
             function newFunction(...args: any[]) {
