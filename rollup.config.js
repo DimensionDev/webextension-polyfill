@@ -29,11 +29,8 @@ if (!fs.existsSync('./dist/realm.js')) {
         'document.children[0].appendChild(iframe)',
     )
     realmSourceCode = realmSourceCode
-        .replace('function rejectImportExpressions', `function rejectImportExpressions(s) {}; function __`)
-        .replace(
-            `function rejectSomeDirectEvalExpressions`,
-            `function rejectSomeDirectEvalExpressions(s) {}; function ___`,
-        )
+        .replace(`function rejectDangerousSources`, `function rejectDangerousSources(s) {}; function ___`)
+        .replace(`const alwaysThrowHandler`, `const alwaysThrowHandler = {}; var __`)
 
     // Hack. Related links:
     // https://github.com/Agoric/realms-shim/issues/61

@@ -69,7 +69,7 @@ const PrepareWebAPIs = (() => {
             enumerable: true,
             value: sandboxRoot,
         })
-        Object.assign(sandboxRoot, { globalThis: sandboxRoot })
+        Object.assign(sandboxRoot, { globalThis: sandboxRoot, self: sandboxRoot })
         const proto = getPrototypeChain(realWindow)
             .map(Object.getOwnPropertyDescriptors)
             .reduceRight((previous, current) => {
