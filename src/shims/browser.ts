@@ -12,7 +12,7 @@ const originalConfirm = window.confirm
  * @param extensionID - Extension ID
  * @param manifest - Manifest of the extension
  */
-export function BrowserFactory(extensionID: string, manifest: Manifest): browser {
+export function BrowserFactory(extensionID: string, manifest: Manifest, proto: typeof Object.prototype): browser {
     if (!extensionID) throw new TypeError()
     const implementation: Partial<browser> = {
         downloads: NotImplementedProxy<typeof browser.downloads>({
@@ -175,7 +175,10 @@ ${(req.origins || []).join('\n')}`)
             },
         }),
     }
-    return NotImplementedProxy<browser>(implementation, false)
+    const proxy = NotImplementedProxy<browser>(implementation, false)
+    // WebExtension polyfill (moz) will check if the proto is equal to Object.prototype
+    Object.setPrototypeOf(proxy, proto)
+    return proxy
 }
 type browser = typeof browser
 

@@ -96,13 +96,13 @@ export class WebExtensionContentScriptEnvironment extends SystemJSRealm {
         super()
         console.log('[WebExtension] Hosted JS environment created.')
         PrepareWebAPIs(this.global)
-        const browser = BrowserFactory(this.extensionID, this.manifest)
+        const browser = BrowserFactory(this.extensionID, this.manifest, this.global.Object.prototype)
         Object.defineProperty(this.global, 'browser', {
             // ? Mozilla's polyfill may overwrite this. Figure this out.
             get: () => browser,
             set: () => false,
         })
-        this.global.browser = BrowserFactory(this.extensionID, this.manifest)
+        this.global.browser = BrowserFactory(this.extensionID, this.manifest, this.global.Object.prototype)
         this.global.URL = enhanceURL(this.global.URL, this.extensionID)
         this.global.fetch = createFetch(this.extensionID)
         this.global.open = openEnhanced(this.extensionID)

@@ -221,7 +221,7 @@ async function loadProtocolPageToCurrentPage(
 function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Manifest) {
     rewriteWorker(extensionID)
     Object.assign(window, {
-        browser: BrowserFactory(extensionID, manifest),
+        browser: BrowserFactory(extensionID, manifest, Object.prototype),
         fetch: createFetch(extensionID),
         URL: enhanceURL(URL, extensionID),
         open: openEnhanced(extensionID),
