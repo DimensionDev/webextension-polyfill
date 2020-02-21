@@ -10,7 +10,7 @@ const moduleCache = new Map<string, string>()
 export function transformAST(src: string, kind: 'script' | 'module', path: string): string {
     const cache = kind === 'module' ? moduleCache : scriptCache
     if (cache.has(src)) return cache.get(src)!
-    // TODO: throw for static import/export and import.meta
+    // TODO: throw for static import/export
     // TODO: Add a ghost import declaration to force ts transform it as a SystemJS module
     const scriptBefore = undefined
     // TODO: Remove the ghost import dependencies in the result SystemJS code

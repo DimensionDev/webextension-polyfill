@@ -28,10 +28,12 @@ if (!fs.existsSync('./dist/realm.js')) {
         'document.body.appendChild(iframe)',
         'document.children[0].appendChild(iframe)',
     )
-    realmSourceCode = realmSourceCode.replace(
-        'function rejectImportExpressions',
-        `function rejectImportExpressions(s) {}; function __`,
-    )
+    realmSourceCode = realmSourceCode
+        .replace('function rejectImportExpressions', `function rejectImportExpressions(s) {}; function __`)
+        .replace(
+            `function rejectSomeDirectEvalExpressions`,
+            `function rejectSomeDirectEvalExpressions(s) {}; function ___`,
+        )
 
     // Hack. Related links:
     // https://github.com/Agoric/realms-shim/issues/61
