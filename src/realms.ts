@@ -13,8 +13,8 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     //#region System
     /** Create import.meta */
     protected createContext(url: string): object {
-        if (url.startsWith('script:')) return { url: undefined }
-        return { url }
+        if (url.startsWith('script:')) return this.global.eval('{ url: undefined }')
+        return this.global.JSON.parse(JSON.stringify({ url }))
     }
     protected createScript() {
         throw new Error('Invalid call')
