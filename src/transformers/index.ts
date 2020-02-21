@@ -1,6 +1,6 @@
 import ts from 'typescript'
 import { thisTransformation } from './this-transformer'
-import { systemjsNameEscapeTransformer } from './systemjs-transformer'
+import { systemjsNameNoLeakTransformer } from './systemjs-transformer'
 
 const scriptCache = new Map<string, string>()
 const moduleCache = new Map<string, string>()
@@ -11,16 +11,10 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
     const cache = kind === 'module' ? moduleCache : scriptCache
     if (cache.has(src)) return cache.get(src)!
     // TODO: throw for static import/export
-    // TODO: Add a ghost import declaration to force ts transform it as a SystemJS module
     const scriptBefore = undefined
-    // TODO: Remove the ghost import dependencies in the result SystemJS code
-    // TODO: Shadow the name 'System' to realm.global.System
-    const scriptAfter = [thisTransformation, systemjsNameEscapeTransformer]
-    // TODO: Add a ghost import declaration to force ts transform it as a SystemJS module
+    const scriptAfter = [thisTransformation, systemjsNameNoLeakTransformer]
     const moduleBefore = undefined
-    // TODO: Remove the ghost import dependencies in the result SystemJS code
-    // TODO: Shadow the name 'System' to realm.global.System
-    const moduleAfter = [systemjsNameEscapeTransformer]
+    const moduleAfter = [systemjsNameNoLeakTransformer]
     function getSourcePath(): { sourceRoot?: string; fileName: string } {
         const _ = path.split('/')
         const filename = _.pop()!
