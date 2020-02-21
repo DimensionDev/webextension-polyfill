@@ -87,7 +87,7 @@ const config = {
     output: {
         file: './dist/out.js',
         format: 'iife',
-        sourcemap: false,
+        sourcemap: true,
     },
     // bundle a typescript is slow and hard to debug
     external: ['typescript', 'realms-shim'],

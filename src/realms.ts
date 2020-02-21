@@ -24,7 +24,7 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     resolve(url: string, parentUrl: string): string {
         if (this.temporaryModule.has(url)) return url
         if (this.temporaryModule.has(parentUrl)) parentUrl = this.global.location.href
-        return super.resolve(url, parentUrl)
+        return new URL(url, parentUrl).toJSON()
     }
     protected async instantiate(url: string, parentUrl: string) {
         if (this.temporaryModule.has(url)) {
@@ -92,7 +92,7 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     private sourceSrc = new Map<string, string>()
     async evaluateScript(path: string, parentUrl: string): Promise<void> {
         this.isNextModule = false
-        await this.import(path)
+        await this.import(path, parentUrl)
     }
     async evaluateModule(path: string, parentUrl: string) {
         this.isNextModule = true
