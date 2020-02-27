@@ -136,6 +136,7 @@ export interface FrameworkImplementation {
         tabId?: number,
         updateProperties?: {
             url?: string
+            active?: boolean
         },
     ): Promise<browser.tabs.Tab>
     //#endregion
