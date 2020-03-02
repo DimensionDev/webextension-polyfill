@@ -65,6 +65,7 @@ export async function registerWebExtension(
                 await LoadBackgroundScript(manifest, extensionID, preloadedResources)
                 break
             case Environment.contentScript:
+                if (registeredWebExtension.has(extensionID)) return registeredWebExtension
                 createContentScriptEnvironment(manifest, extensionID, preloadedResources, debugModeURL)
                 await untilDocumentReady()
                 await LoadContentScript(manifest, extensionID, preloadedResources)

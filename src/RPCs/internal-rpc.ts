@@ -7,7 +7,7 @@
 import { isDebug } from '../debugger/isDebugMode'
 import { reservedID } from '../internal'
 import { AsyncCall } from 'async-call-rpc'
-import { Manifest, registeredWebExtension, loadContentScript } from '../Extensions'
+import { Manifest, registeredWebExtension, loadContentScript, registerWebExtension } from '../Extensions'
 import { FrameworkRPC } from './framework-rpc'
 
 /**
@@ -69,7 +69,9 @@ export const internalRPCChannel = new (class WebExtensionInternalChannel {
 const internalRPCLocalImplementation: InternalRPCMethods = {
     async executeContentScript(targetTabID, extensionID, manifest, options) {
         console.debug('[WebExtension] requested to inject code', options)
-        const ext = registeredWebExtension.get(extensionID)!
+        const ext =
+            registeredWebExtension.get(extensionID) ||
+            (await registerWebExtension(extensionID, manifest, {})).get(extensionID)!
         if (options.code) ext.environment.evaluateInlineScript(options.code)
         else if (options.file)
             loadContentScript(
