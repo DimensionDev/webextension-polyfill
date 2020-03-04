@@ -13,8 +13,6 @@
  * - [ ] ContentScript modification on DOM prototype is not discoverable by main thread
  * - [ ] Main thread modification on DOM prototype is not discoverable by ContentScript
  */
-import Realm, { Realm as RealmInstance } from 'realms-shim'
-
 import { BrowserFactory } from './browser'
 import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
@@ -26,11 +24,11 @@ import { enhancedWorker } from '../hijacks/Worker.prototype.constructor'
  * Recursively get the prototype chain of an Object
  * @param o Object
  */
-function getPrototypeChain(o: any, _: any[] = []): any[] {
+function getPrototypeChain(o: object, _: object[] = []): object[] {
     if (o === undefined || o === null) return _
     const y = Object.getPrototypeOf(o)
-    if (y === null || y === undefined || y === Object.prototype) return _
-    return getPrototypeChain(Object.getPrototypeOf(y), [..._, y])
+    if (y === null || y === undefined || y === Object.prototype || y === Function.prototype) return _
+    return getPrototypeChain(y, [..._, y])
 }
 /**
  * Apply all WebAPIs to the clean sandbox created by Realm
@@ -47,40 +45,58 @@ const PrepareWebAPIs = (() => {
     )
     const realWindow = window
     const webAPIs = Object.getOwnPropertyDescriptors(window)
-    Reflect.deleteProperty(webAPIs, 'window')
     Reflect.deleteProperty(webAPIs, 'globalThis')
     Reflect.deleteProperty(webAPIs, 'self')
     Reflect.deleteProperty(webAPIs, 'global')
-    Object.defineProperty(Document.prototype, 'defaultView', {
-        get() {
-            return undefined
-        },
-    })
+    const cachedPropertyDescriptor = new WeakMap<typeof globalThis, Map<object, object>>()
     return (sandboxRoot: typeof globalThis) => {
-        const clonedWebAPIs = { ...webAPIs }
-        Object.getOwnPropertyNames(sandboxRoot).forEach(name => Reflect.deleteProperty(clonedWebAPIs, name))
-        // ? Clone Web APIs
-        for (const key in webAPIs) {
-            PatchThisOfDescriptorToGlobal(webAPIs[key], realWindow)
-        }
-        Object.defineProperty(sandboxRoot, 'window', {
-            configurable: false,
-            writable: false,
-            enumerable: true,
-            value: sandboxRoot,
-        })
-        Object.assign(sandboxRoot, { globalThis: sandboxRoot, self: sandboxRoot })
-        const proto = getPrototypeChain(realWindow)
-            .map(Object.getOwnPropertyDescriptors)
-            .reduceRight((previous, current) => {
-                const copy = { ...current }
-                for (const key in copy) {
-                    PatchThisOfDescriptorToGlobal(copy[key], realWindow)
+        const sandboxDocument = cloneObjectWithInternalSlot(document, sandboxRoot, {
+            descriptorsModifier(obj, desc) {
+                if ('defaultView' in desc) {
+                    desc.defaultView.get = () => sandboxRoot
                 }
-                return Object.create(previous, copy)
-            }, {})
-        Object.setPrototypeOf(sandboxRoot, proto)
-        Object.defineProperties(sandboxRoot, clonedWebAPIs)
+                return desc
+            },
+        })
+        const clonedWebAPIs: Record<string, PropertyDescriptor> = {
+            ...(webAPIs as any),
+            window: { configurable: false, writable: false, enumerable: true, value: sandboxRoot },
+            document: { configurable: false, enumerable: true, get: () => sandboxDocument },
+        }
+        for (const key in clonedWebAPIs) if (key in sandboxRoot) delete clonedWebAPIs[key]
+        Object.assign(sandboxRoot, { globalThis: sandboxRoot, self: sandboxRoot })
+        cloneObjectWithInternalSlot(realWindow, sandboxRoot, {
+            nextObject: sandboxRoot,
+            designatedOwnDescriptors: clonedWebAPIs,
+        })
+    }
+    function cloneObjectWithInternalSlot<T extends object>(
+        original: T,
+        realm: typeof globalThis,
+        traps: {
+            nextObject?: object
+            designatedOwnDescriptors?: Record<string, PropertyDescriptor>
+            descriptorsModifier?: (object: object, desc: Record<string, PropertyDescriptor>) => typeof desc
+        },
+    ) {
+        const ownDescriptor = traps.designatedOwnDescriptors ?? Object.getOwnPropertyDescriptors(original)
+        const prototypeChain = getPrototypeChain(original)
+        if (!cachedPropertyDescriptor.has(realm)) cachedPropertyDescriptor.set(realm, new Map())
+        const cacheMap = cachedPropertyDescriptor.get(realm)!
+        const newProto = prototypeChain.reduceRight((previous, current) => {
+            if (cacheMap.has(current)) return cacheMap.get(current)!
+            const desc = Object.getOwnPropertyDescriptors(current)
+            const obj = Object.create(
+                previous,
+                PatchThisOfDescriptors(traps.descriptorsModifier?.(current, desc) ?? desc, original),
+            )
+            cacheMap.set(current, obj)
+            return obj
+        }, {})
+        const next = traps.nextObject || Object.create(null)
+        Object.defineProperties(next, PatchThisOfDescriptors(ownDescriptor, original))
+        Object.setPrototypeOf(next, newProto)
+        return next
     }
 })()
 /**
@@ -127,29 +143,37 @@ export class WebExtensionContentScriptEnvironment extends SystemJSRealm {
     protected fetch = createFetch(this.extensionID)
 }
 /**
- * Many methods on `window` requires `this` points to a Window object
+ * Many native methods requires `this` points to a native object
  * Like `alert()`. If you call alert as `const w = { alert }; w.alert()`,
  * there will be an Illegal invocation.
  *
  * To prevent `this` binding lost, we need to rebind it.
  *
  * @param desc PropertyDescriptor
- * @param global The real window
+ * @param native The native object
  */
-function PatchThisOfDescriptorToGlobal(desc: PropertyDescriptor, global: Window) {
+function PatchThisOfDescriptorToNative(desc: PropertyDescriptor, native: object) {
     const { get, set, value } = desc
-    if (get) desc.get = () => get.apply(global)
-    if (set) desc.set = (val: any) => set.apply(global, val)
+    if (get) desc.get = () => get.apply(native)
+    if (set) desc.set = (val: any) => set.apply(native, val)
     if (value && typeof value === 'function') {
         const desc2 = Object.getOwnPropertyDescriptors(value)
-        desc.value = function(...args: any[]) {
-            if (new.target) return Reflect.construct(value, args, new.target)
-            return Reflect.apply(value, global, args)
+        desc.value = function() {
+            if (new.target) return Reflect.construct(value, arguments, new.target)
+            return Reflect.apply(value, native, arguments)
         }
+        delete desc2.arguments
+        delete desc2.caller
+        delete desc2.callee
         Object.defineProperties(desc.value, desc2)
         try {
             // ? For unknown reason this fail for some objects on Safari.
             value.prototype && Object.setPrototypeOf(desc.value, value.prototype)
         } catch {}
     }
+}
+function PatchThisOfDescriptors(desc: Record<string, PropertyDescriptor>, native: object): typeof desc {
+    const _ = Object.entries(desc).map(([x, y]) => [x, { ...y }] as const)
+    _.forEach(x => PatchThisOfDescriptorToNative(x[1], native))
+    return Object.fromEntries(_)
 }
