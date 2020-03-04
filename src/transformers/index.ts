@@ -1,6 +1,7 @@
 import ts from 'typescript'
 import { thisTransformation } from './this-transformer'
 import { systemjsNameNoLeakTransformer } from './systemjs-transformer'
+import { checkDynamicImport } from './has-dynamic-import'
 
 const scriptCache = new Map<string, string>()
 const moduleCache = new Map<string, string>()
@@ -10,9 +11,11 @@ const moduleCache = new Map<string, string>()
 export function transformAST(src: string, kind: 'script' | 'module', path: string): string {
     const cache = kind === 'module' ? moduleCache : scriptCache
     if (cache.has(src)) return cache.get(src)!
-    // TODO: throw for static import/export
+    const hasDynamicImport = checkDynamicImport(src)
     const scriptBefore = undefined
-    const scriptAfter = [thisTransformation, systemjsNameNoLeakTransformer]
+    const scriptAfter = [thisTransformation, hasDynamicImport ? systemjsNameNoLeakTransformer : undefined!].filter(
+        x => x,
+    )
     const moduleBefore = undefined
     const moduleAfter = [systemjsNameNoLeakTransformer]
     function getSourcePath(): { sourceRoot?: string; fileName: string } {
@@ -32,7 +35,8 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
             // ? we're assuming the developer has ran the transformer so we are not going to run any downgrade for them
             target: ts.ScriptTarget.ESNext,
             // ? Also use System in script type therefore the dynamic import will work
-            module: ts.ModuleKind.System,
+            // ? If no need for module, keep it ESNext (and throw by browser)
+            module: hasDynamicImport || kind === 'module' ? ts.ModuleKind.System : ts.ModuleKind.ESNext,
             // ? A comment in React dev will make a false positive on realms checker
             removeComments: true,
             inlineSourceMap: true,

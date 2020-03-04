@@ -109,6 +109,12 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     private async evaluateInline(sourceText: string, sourceMapURL?: string) {
         if (sourceMapURL) this.sourceSrc.set(sourceText, this.esRealm.global.browser.runtime.getURL(sourceMapURL))
         const key = `script:` + Math.random().toString()
+
+        const needModule = sourceText.match('import') || this.isNextModule
+        if (!needModule) {
+            return this.esRealm.evaluate(sourceText)
+        }
+
         this.temporaryModule.set(key, sourceText)
         try {
             return await this.import(key)
@@ -117,9 +123,9 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
             this.delete?.(key)
         }
     }
-    private runExecutor(sourceText: string) {
+    private runExecutor(sourceText: string): void {
         const executor = this.esRealm.evaluate(sourceText) as (System: this) => void
-        return executor(this)
+        executor(this)
     }
     //#endregion
 }
