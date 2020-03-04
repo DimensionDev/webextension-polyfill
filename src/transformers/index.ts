@@ -2,6 +2,7 @@ import ts from 'typescript'
 import { thisTransformation } from './this-transformer'
 import { systemjsNameNoLeakTransformer } from './systemjs-transformer'
 import { checkDynamicImport } from './has-dynamic-import'
+import { isDebug } from '../debugger/isDebugMode'
 
 const scriptCache = new Map<string, string>()
 const moduleCache = new Map<string, string>()
@@ -9,6 +10,9 @@ const moduleCache = new Map<string, string>()
  * For scripts, we treat it as a module with no static import/export.
  */
 export function transformAST(src: string, kind: 'script' | 'module', path: string): string {
+    if (isDebug) {
+        console.time('AST Transform')
+    }
     const cache = kind === 'module' ? moduleCache : scriptCache
     if (cache.has(src)) return cache.get(src)!
     const hasDynamicImport = checkDynamicImport(src)
@@ -73,5 +77,8 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
     }
     if (error[0]) throw error[0]
     cache.set(src, out.outputText)
+    if (isDebug) {
+        console.timeEnd('AST Transform')
+    }
     return out.outputText
 }
