@@ -349,7 +349,7 @@ export async function loadContentScript(
     for (const path of content.js || []) {
         const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
         if (preloaded) {
-            await environment.evaluateInlineScript(preloaded)
+            await environment.evaluateInlineScript(preloaded, path)
         } else {
             console.error(`[WebExtension] Content scripts not found for ${manifest.name}: ${path}`)
         }

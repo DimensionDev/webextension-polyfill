@@ -98,15 +98,16 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
         this.isNextModule = true
         return this.import(path, parentUrl)
     }
-    async evaluateInlineModule(sourceText: string) {
+    async evaluateInlineModule(sourceText: string, sourceMapURL?: string) {
         this.isNextModule = true
-        return this.evaluateInline(sourceText)
+        return this.evaluateInline(sourceText, sourceMapURL)
     }
-    async evaluateInlineScript(sourceText: string) {
+    async evaluateInlineScript(sourceText: string, sourceMapURL?: string) {
         this.isNextModule = false
-        await this.evaluateInline(sourceText)
+        await this.evaluateInline(sourceText, sourceMapURL)
     }
-    private async evaluateInline(sourceText: string) {
+    private async evaluateInline(sourceText: string, sourceMapURL?: string) {
+        if (sourceMapURL) this.sourceSrc.set(sourceText, this.esRealm.global.browser.runtime.getURL(sourceMapURL))
         const key = `script:` + Math.random().toString()
         this.temporaryModule.set(key, sourceText)
         try {
