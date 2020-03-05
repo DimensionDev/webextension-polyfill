@@ -97,7 +97,7 @@ const config = {
             preferBuiltins: false,
             mainFields: ['module', 'main'],
         }),
-        typescript(),
+        typescript({ tsconfigOverride: { compilerOptions: { module: 'ESNext' } } }),
         commonjs({
             extensions: ['.js', '.ts', '.tsx'],
             exclude: ['node_modules/lodash-es/'],
