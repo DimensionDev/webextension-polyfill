@@ -1,14 +1,14 @@
 import { matchingURL } from './utils/URLMatcher'
-import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
+import { WebExtensionManagedRealm } from './shims/XRayVision'
 import { BrowserFactory } from './shims/browser'
 import { createFetch } from './shims/fetch'
 import { enhanceURL } from './shims/URL.create+revokeObjectURL'
 import { openEnhanced, closeEnhanced } from './shims/window.open+close'
-import { getResourceAsync } from './utils/Resources'
+import { getResourceAsync, getPrefix } from './utils/Resources'
 import { EventPools } from './utils/LocalMessages'
 import { reservedID, useInternalStorage } from './internal'
 import { isDebug, parseDebugModeURL } from './debugger/isDebugMode'
-import { writeHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
+import { hookedHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
 import { enhancedWorker } from './hijacks/Worker.prototype.constructor'
 import { createLocationProxy } from './hijacks/location'
 
@@ -17,7 +17,7 @@ export type Manifest = Partial<browser.runtime.Manifest> &
     Pick<browser.runtime.Manifest, 'name' | 'version' | 'manifest_version'>
 export interface WebExtension {
     manifest: Manifest
-    environment: WebExtensionContentScriptEnvironment
+    environment: WebExtensionManagedRealm
     preloadedResources: Record<string, string>
 }
 export const registeredWebExtension = new Map<WebExtensionID, WebExtension>()
@@ -34,7 +34,7 @@ export async function registerWebExtension(
 ) {
     if (extensionID === reservedID)
         throw new TypeError('You cannot use reserved id ' + reservedID + ' as the extension id')
-    let environment: Environment = getContext(manifest, extensionID, preloadedResources)
+    let environment: Environment = getContext(manifest)
     let debugModeURL = ''
     if (isDebug) {
         const opt = parseDebugModeURL(extensionID, manifest)
@@ -52,23 +52,23 @@ export async function registerWebExtension(
         switch (environment) {
             case Environment.debugModeManagedPage:
                 if (!isDebug) throw new TypeError('Invalid state')
-                createContentScriptEnvironment(manifest, extensionID, preloadedResources, debugModeURL)
-                LoadContentScript(manifest, extensionID, preloadedResources, debugModeURL)
+                createManagedECMAScriptRealm(manifest, extensionID, preloadedResources, debugModeURL)
+                loadContentScriptByManifest(manifest, extensionID, debugModeURL)
                 break
             case Environment.protocolPage:
                 prepareExtensionProtocolEnvironment(extensionID, manifest)
-                if (isDebug) LoadProtocolPage(extensionID, manifest, preloadedResources, debugModeURL)
+                if (isDebug) loadProtocolPageByManifest(extensionID, manifest, preloadedResources, debugModeURL)
                 break
             case Environment.backgroundScript:
                 prepareExtensionProtocolEnvironment(extensionID, manifest)
                 await untilDocumentReady()
-                await LoadBackgroundScript(manifest, extensionID, preloadedResources)
+                await loadBackgroundScriptByManifest(manifest, extensionID, preloadedResources)
                 break
             case Environment.contentScript:
                 if (registeredWebExtension.has(extensionID)) return registeredWebExtension
-                createContentScriptEnvironment(manifest, extensionID, preloadedResources, debugModeURL)
+                createManagedECMAScriptRealm(manifest, extensionID, preloadedResources, debugModeURL)
                 await untilDocumentReady()
-                await LoadContentScript(manifest, extensionID, preloadedResources)
+                await loadContentScriptByManifest(manifest, extensionID)
                 break
             default:
                 console.warn(`[WebExtension] unknown running environment ${environment}`)
@@ -98,7 +98,7 @@ export async function registerWebExtension(
     return registeredWebExtension
 }
 
-function getContext(manifest: Manifest, extensionID: string, preloadedResources: Record<string, string>) {
+function getContext(manifest: Manifest) {
     let environment: Environment
     if (location.protocol === 'holoflows-extension:') {
         if (location.pathname === '/_generated_background_page.html') {
@@ -119,22 +119,22 @@ function getContext(manifest: Manifest, extensionID: string, preloadedResources:
 function untilDocumentReady() {
     if (document.readyState === 'complete') return Promise.resolve()
     return new Promise(resolve => {
-        document.addEventListener('readystatechange', resolve, { once: true, passive: true })
+        document.addEventListener('readystatechange', () => document.readyState === 'complete' && resolve)
     })
 }
 
-async function LoadProtocolPage(
+async function loadProtocolPageByManifest(
     extensionID: string,
     manifest: Manifest,
     preloadedResources: Record<string, string>,
     loadingPageURL: string,
 ) {
-    loadingPageURL = new URL(loadingPageURL, 'holoflows-extension://' + extensionID + '/').toJSON()
-    writeHTMLScriptElementSrc(extensionID, manifest, preloadedResources, loadingPageURL)
+    loadingPageURL = new URL(loadingPageURL, getPrefix(extensionID)).toJSON()
+    hookedHTMLScriptElementSrc(extensionID, manifest, loadingPageURL)
     await loadProtocolPageToCurrentPage(extensionID, manifest, preloadedResources, loadingPageURL)
 }
 
-async function LoadBackgroundScript(
+async function loadBackgroundScriptByManifest(
     manifest: Manifest,
     extensionID: string,
     preloadedResources: Record<string, string>,
@@ -144,16 +144,16 @@ async function LoadBackgroundScript(
     if (!isDebug && location.protocol !== 'holoflows-extension:') {
         throw new TypeError(`Background script only allowed in localhost(for debugging) and holoflows-extension://`)
     }
-    let currentPage = 'holoflows-extension://' + extensionID + '/_generated_background_page.html'
+    let currentPage = getPrefix(extensionID) + '_generated_background_page.html'
     if (page) {
         if (scripts && scripts.length)
             throw new TypeError(`In the manifest, you can't have both "page" and "scripts" for background field!`)
         const pageURL = new URL(page, location.origin)
         if (pageURL.origin !== location.origin)
             throw new TypeError(`You can not specify a foreign origin for the background page`)
-        currentPage = 'holoflows-extension://' + extensionID + '/' + page
+        currentPage = getPrefix(extensionID) + page
     }
-    writeHTMLScriptElementSrc(extensionID, manifest, preloadedResources, currentPage)
+    hookedHTMLScriptElementSrc(extensionID, manifest, currentPage)
     if (page) {
         if (currentPage !== location.href) {
             await loadProtocolPageToCurrentPage(extensionID, manifest, preloadedResources, page)
@@ -168,13 +168,8 @@ It's running in the background page mode`
         }
     } else {
         for (const path of (scripts as string[]) || []) {
-            const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
-            if (preloaded) {
-                // ? Run it in global scope.
-                await RunInProtocolScope(extensionID, manifest, { source: preloaded, path }, currentPage, 'script')
-            } else {
-                console.error(`[WebExtension] Background scripts not found for ${manifest.name}: ${path}`)
-            }
+            // ? Run it in global scope.
+            await RunInProtocolScope(extensionID, manifest, { path, type: 'file' }, currentPage, 'script')
         }
     }
 }
@@ -190,32 +185,24 @@ async function loadProtocolPageToCurrentPage(
     const parser = new DOMParser()
     const dom = parser.parseFromString(html, 'text/html')
     const scripts = await Promise.all(
-        Array.from(dom.querySelectorAll('script')).map<Promise<[string, string | undefined, 'script' | 'module']>>(
-            async script => {
-                const path = new URL(script.src).pathname
-                script.remove()
-                return [
-                    path,
-                    await getResourceAsync(extensionID, preloadedResources, path),
-                    script.type === 'module' ? 'module' : 'script',
-                ]
-            },
-        ),
+        Array.from(dom.querySelectorAll('script')).map<Promise<[string, 'script' | 'module']>>(async script => {
+            const path = new URL(script.src).pathname
+            script.remove()
+            return [path, script.type === 'module' ? 'module' : 'script']
+        }),
     )
     for (const c of document.head.children) c.remove()
     for (const c of dom.head.children) document.head.appendChild(c)
     for (const c of document.body.children) c.remove()
     for (const c of dom.body.children) document.body.appendChild(c)
-    for (const [path, script, kind] of scripts) {
-        if (script)
-            await RunInProtocolScope(
-                extensionID,
-                manifest,
-                { source: script, path },
-                new URL(page, 'holoflows-extension://' + extensionID + '/').toJSON(),
-                kind,
-            )
-        else console.error('Resource', path, 'not found')
+    for (const [path, kind] of scripts) {
+        await RunInProtocolScope(
+            extensionID,
+            manifest,
+            { path, type: 'file' },
+            new URL(page, getPrefix(extensionID)).toJSON(),
+            kind,
+        )
     }
 }
 
@@ -240,7 +227,7 @@ function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Mani
 export async function RunInProtocolScope(
     extensionID: string,
     manifest: Manifest,
-    code: { source: string; path?: string },
+    code: { type: 'file'; path: string } | { type: 'inline'; source: string },
     currentPage: string,
     kind: 'module' | 'script',
 ): Promise<void> {
@@ -248,7 +235,7 @@ export async function RunInProtocolScope(
     if (location.protocol === 'holoflows-extension:') {
         const script = document.createElement('script')
         script.type = esModule ? 'module' : 'text/javascript'
-        if (code.path) script.src = code.path
+        if (code.type === 'file') script.src = code.path
         else script.innerHTML = code.source
         script.defer = true
         document.body.appendChild(script)
@@ -259,12 +246,11 @@ export async function RunInProtocolScope(
     const { src } = parseDebugModeURL(extensionID, manifest)
     const locationProxy = createLocationProxy(extensionID, manifest, currentPage || src)
     // ? Transform ESM into SystemJS to run in debug mode.
-    const _: WebExtensionContentScriptEnvironment =
+    const _: WebExtensionManagedRealm =
         Reflect.get(globalThis, 'env') ||
-        (console.log('Debug by globalThis.env'),
-        new WebExtensionContentScriptEnvironment(extensionID, manifest, locationProxy))
+        (console.log('Debug by globalThis.env'), new WebExtensionManagedRealm(extensionID, manifest, locationProxy))
     Object.assign(globalThis, { env: _ })
-    if (code.path) {
+    if (code.type === 'file') {
         if (esModule) await _.evaluateModule(code.path, currentPage)
         else await _.evaluateScript(code.path, currentPage)
     } else {
@@ -272,14 +258,14 @@ export async function RunInProtocolScope(
         else await _.evaluateInlineScript(code.source)
     }
 }
-function createContentScriptEnvironment(
+function createManagedECMAScriptRealm(
     manifest: Manifest,
     extensionID: string,
     preloadedResources: Record<string, string>,
     debugModePretendedURL?: string,
 ) {
     if (!registeredWebExtension.has(extensionID)) {
-        const environment = new WebExtensionContentScriptEnvironment(
+        const environment = new WebExtensionManagedRealm(
             extensionID,
             manifest,
             debugModePretendedURL ? createLocationProxy(extensionID, manifest, debugModePretendedURL) : undefined,
@@ -292,12 +278,7 @@ function createContentScriptEnvironment(
         registeredWebExtension.set(extensionID, ext)
     }
 }
-async function LoadContentScript(
-    manifest: Manifest,
-    extensionID: string,
-    preloadedResources: Record<string, string>,
-    debugModePretendedURL?: string,
-) {
+async function loadContentScriptByManifest(manifest: Manifest, extensionID: string, debugModePretendedURL?: string) {
     if (!isDebug && debugModePretendedURL) throw new TypeError('Invalid state')
     if (isDebug) {
         document.body.innerHTML = `
@@ -320,7 +301,7 @@ document.write(html);">Remove script tags and go</button>
 `
     }
     for (const [index, content] of (manifest.content_scripts || []).entries()) {
-        warningNotImplementedItem(content, index)
+        warnNotImplementedManifestElement(content, index)
         if (
             matchingURL(
                 new URL(debugModePretendedURL || location.href),
@@ -332,31 +313,21 @@ document.write(html);">Remove script tags and go</button>
             )
         ) {
             console.debug(`[WebExtension] Loading content script for`, content)
-            await loadContentScript(extensionID, manifest, content, preloadedResources)
+            await loadContentScript(extensionID, content)
         } else {
             console.debug(`[WebExtension] URL mismatched. Skip content script for, `, content)
         }
     }
 }
 
-export async function loadContentScript(
-    extensionID: string,
-    manifest: Manifest,
-    content: NonNullable<Manifest['content_scripts']>[0],
-    preloadedResources: Record<string, string>,
-) {
+export async function loadContentScript(extensionID: string, content: NonNullable<Manifest['content_scripts']>[0]) {
     const { environment } = registeredWebExtension.get(extensionID)!
     for (const path of content.js || []) {
-        const preloaded = await getResourceAsync(extensionID, preloadedResources, path)
-        if (preloaded) {
-            await environment.evaluateInlineScript(preloaded, path)
-        } else {
-            console.error(`[WebExtension] Content scripts not found for ${manifest.name}: ${path}`)
-        }
+        await environment.evaluateScript(path, getPrefix(extensionID))
     }
 }
 
-function warningNotImplementedItem(content: NonNullable<Manifest['content_scripts']>[0], index: number) {
+function warnNotImplementedManifestElement(content: NonNullable<Manifest['content_scripts']>[0], index: number) {
     if (content.all_frames)
         console.warn(`all_frames not supported yet. Defined at manifest.content_scripts[${index}].all_frames`)
     if (content.css) console.warn(`css not supported yet. Defined at manifest.content_scripts[${index}].css`)

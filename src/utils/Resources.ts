@@ -2,7 +2,6 @@ import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { decodeStringOrBlob } from './StringOrBlob'
 import { moduleTransformCache, scriptTransformCache, PrebuiltVersion } from '../transformers'
-import { ModuleKind } from '../realms'
 
 const normalized = Symbol('Normalized resources')
 function normalizePath(path: string, extensionID: string) {
@@ -10,11 +9,11 @@ function normalizePath(path: string, extensionID: string) {
     if (path.startsWith(prefix)) return debugModeURLRewrite(extensionID, path)
     else return debugModeURLRewrite(extensionID, new URL(path, prefix).toJSON())
 }
-function getPrefix(extensionID: string) {
+export function getPrefix(extensionID: string) {
     return 'holoflows-extension://' + extensionID + '/'
 }
 
-export function getResource(extensionID: string, resources: Record<string, string>, path: string): string | undefined {
+function getResource(extensionID: string, resources: Record<string, string>, path: string): string | undefined {
     // Normalization the resources
     // @ts-ignore
     if (!resources[normalized]) {

@@ -1,5 +1,5 @@
 import { registerWebExtension } from './Extensions'
-import { WebExtensionContentScriptEnvironment } from './shims/XRayVision'
+import { WebExtensionManagedRealm } from './shims/XRayVision'
 import './debugger/localhost'
 import { isDebug } from './debugger/isDebugMode'
 
@@ -22,7 +22,7 @@ if (isDebug) {
                 console.log(`Loading test WebExtension ${id}. Use globalThis.exts to access env`)
                 Object.assign(globalThis, {
                     registerWebExtension,
-                    WebExtensionContentScriptEnvironment,
+                    WebExtensionManagedRealm,
                 })
                 return registerWebExtension(id, JSON.parse(x))
             })

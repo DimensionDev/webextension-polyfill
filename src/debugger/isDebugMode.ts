@@ -1,4 +1,5 @@
 import { Environment, Manifest } from '../Extensions'
+import { getPrefix } from '../utils/Resources'
 
 export const isDebug = location.hostname === 'localhost'
 export function parseDebugModeURL(
@@ -10,7 +11,7 @@ export function parseDebugModeURL(
     const param = new URLSearchParams(location.search)
     const type = param.get('type')
     let src = param.get('url')
-    const base = 'holoflows-extension://' + extensionID + '/'
+    const base = getPrefix(extensionID)
     if (src === '_options_') src = new URL(manifest.options_ui!.page, base).toJSON()
     if (src === '_popup_') src = new URL(manifest.browser_action!.default_popup!, base).toJSON()
     if (type === 'b') return { env: Environment.backgroundScript, src: '' }

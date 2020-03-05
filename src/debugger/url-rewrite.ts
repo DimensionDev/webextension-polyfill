@@ -1,8 +1,9 @@
 import { isDebug } from './isDebugMode'
+import { getPrefix } from '../utils/Resources'
 
 export function debugModeURLRewrite(extensionID: string, url: string): string {
     if (!isDebug) return url
-    const u = new URL(url, 'holoflows-extension://' + extensionID + '/')
+    const u = new URL(url, getPrefix(extensionID))
     if (u.protocol === 'holoflows-extension:') {
         u.protocol = location.protocol
         u.host = location.host
