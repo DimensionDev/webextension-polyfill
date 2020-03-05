@@ -1,12 +1,12 @@
 import Realm from 'realms-shim'
-import { transformAST } from './transformers'
+import { transformAST, PrebuiltVersion, moduleTransformCache, scriptTransformCache } from './transformers'
 // See: https://github.com/systemjs/systemjs/issues/2123
 import 'systemjs'
 import 'systemjs/dist/s.js'
 import { checkDynamicImport } from './transformers/has-dynamic-import'
 const SystemJSConstructor: { new (): typeof System } & typeof System = System.constructor as any
 Reflect.deleteProperty(globalThis, 'System')
-type ModuleKind = 'module' | 'script'
+export type ModuleKind = 'module' | 'script'
 export abstract class SystemJSRealm extends SystemJSConstructor {
     /** Fetch the file that the SystemJSRealm requires for module loading */
     protected abstract async fetch(...args: Parameters<typeof fetch>): Promise<Response>
@@ -62,46 +62,37 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     }
     //#endregion
     //#region Realm
+    private runtimeTransformer = {
+        rewrite: (ctx: { src: string }) => {
+            ctx.src = transformAST(
+                ctx.src,
+                this.isNextScript ? 'script' : 'module',
+                this.sourceSrc.get(ctx.src) || this.getEvalFileName(),
+            )
+            this.isNextScript = true
+            return ctx
+        },
+    }
     protected esRealm = Realm.makeRootRealm({
         sloppyGlobals: true,
-        transforms: [
-            {
-                rewrite: ctx => {
-                    if (!this.inited) return ctx
-                    ctx.src = transformAST(
-                        ctx.src,
-                        this.isNextScript ? 'script' : 'module',
-                        this.sourceSrc.get(ctx.src) || this.getEvalFileName(),
-                    )
-                    this.isNextScript = false
-                    return ctx
-                },
-            },
-        ],
+        transforms: [],
     })
     private id = 0
     private getEvalFileName() {
         return `debugger://${this.global.browser.runtime.id}/VM${++this.id}`
     }
-    /**
-     * Realms have it's own code to execute.
-     */
-    private inited = false
-    constructor() {
-        super()
-        this.inited = true
-    }
     get global(): typeof globalThis & { browser: typeof browser } {
         return this.esRealm.global
     }
-    private isNextScript = false
+    private isNextScript = true
     private sourceSrc = new Map<string, string>()
     async evaluateScript(path: string, parentUrl: string): Promise<unknown> {
         this.isNextScript = true
         const sourceText = await this.loadFile(path, parentUrl)
 
+        if (scriptTransformCache.has(sourceText)) return this.esRealm.evaluate(scriptTransformCache.get(sourceText)!)
         if (!checkDynamicImport(sourceText)) {
-            return this.esRealm.evaluate(sourceText)
+            return this.esRealm.evaluate(sourceText, { transforms: [this.runtimeTransformer] })
         }
         return await this.import(path, parentUrl)
     }
@@ -115,9 +106,10 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     }
     evaluateInlineScript(sourceText: string, sourceURL?: string) {
         this.isNextScript = true
+        if (scriptTransformCache.has(sourceText)) return this.esRealm.evaluate(scriptTransformCache.get(sourceText)!)
         if (!checkDynamicImport(sourceText)) {
             sourceURL && this.sourceSrc.set(sourceText, this.esRealm.global.browser.runtime.getURL(sourceURL))
-            return this.esRealm.evaluate(sourceText)
+            return this.esRealm.evaluate(sourceText, { transforms: [this.runtimeTransformer] })
         }
         this.evaluateInlineTreatAsModule(sourceText, sourceURL)
         // TODO: should return a Promise.
@@ -134,7 +126,9 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
         }
     }
     private runExecutor(sourceText: string, kind: ModuleKind): void {
-        const executor = this.esRealm.evaluate(sourceText) as (System: this) => void
+        const executor = this.esRealm.evaluate(sourceText, { transforms: [this.runtimeTransformer] }) as (
+            System: this,
+        ) => void
         if (!checkDynamicImport(sourceText) && kind === 'script') {
             this.lastModuleRegister = [
                 [],

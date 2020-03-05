@@ -19,6 +19,7 @@ export function checkDynamicImport(source: string): boolean {
         reportDiagnostics: true,
         compilerOptions: {
             target: ts.ScriptTarget.ESNext,
+            module: ts.ModuleKind.ESNext,
         },
     })
     cache.set(source, hasDyn)

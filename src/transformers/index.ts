@@ -3,14 +3,14 @@ import { thisTransformation } from './this-transformer'
 import { systemjsNameNoLeakTransformer } from './systemjs-transformer'
 import { checkDynamicImport } from './has-dynamic-import'
 
-const scriptCache = new Map<string, string>()
-const moduleCache = new Map<string, string>()
+export const scriptTransformCache = new Map<string, string>()
+export const moduleTransformCache = new Map<string, string>()
 export const PrebuiltVersion = 0
 /**
  * For scripts, we treat it as a module with no static import/export.
  */
 export function transformAST(src: string, kind: 'script' | 'module', path: string): string {
-    const cache = kind === 'module' ? moduleCache : scriptCache
+    const cache = kind === 'module' ? moduleTransformCache : scriptTransformCache
     if (cache.has(src)) return cache.get(src)!
     const hasDynamicImport = checkDynamicImport(src)
     const scriptBefore = undefined

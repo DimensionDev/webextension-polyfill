@@ -1,6 +1,8 @@
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { decodeStringOrBlob } from './StringOrBlob'
+import { moduleTransformCache, scriptTransformCache, PrebuiltVersion } from '../transformers'
+import { ModuleKind } from '../realms'
 
 const normalized = Symbol('Normalized resources')
 function normalizePath(path: string, extensionID: string) {
@@ -29,14 +31,39 @@ export function getResource(extensionID: string, resources: Record<string, strin
 }
 
 export async function getResourceAsync(extensionID: string, resources: Record<string, string>, path: string) {
-    const preloaded = getResource(extensionID, resources, path)
-    if (preloaded) return preloaded
+    async function getResourceAsyncPure(extensionID: string, resources: Record<string, string>, path: string) {
+        const preloaded = getResource(extensionID, resources, path)
+        const url = normalizePath(path, extensionID)
 
-    const url = normalizePath(path, extensionID)
-    const response = await FrameworkRPC.fetch(extensionID, { method: 'GET', url })
-    const result = decodeStringOrBlob(response.data)
-    if (result === null) return undefined
-    if (typeof result === 'string') return result
-    console.error('Not supported type for getResourceAsync')
-    return undefined
+        if (preloaded) return preloaded
+
+        const response = await FrameworkRPC.fetch(extensionID, { method: 'GET', url })
+        const result = decodeStringOrBlob(response.data)
+        if (result === null) return undefined
+        if (typeof result === 'string') return result
+        console.error('Not supported type for getResourceAsync')
+        return undefined
+    }
+    if (path.endsWith('.js')) {
+        const content = await getResourceAsyncPure(extensionID, resources, path)
+        if (!content) return undefined
+        if (!moduleTransformCache.has(content)) {
+            const moduleCache = await getResourceAsyncPure(
+                extensionID,
+                resources,
+                path + `.prebuilt-${PrebuiltVersion}-module`,
+            )
+            if (moduleCache) moduleTransformCache.set(content, moduleCache)
+        }
+        if (!scriptTransformCache.has(content)) {
+            const scriptCache = await getResourceAsyncPure(
+                extensionID,
+                resources,
+                path + `.prebuilt-${PrebuiltVersion}-script`,
+            )
+            if (scriptCache) scriptTransformCache.set(content, scriptCache)
+        }
+        return content
+    }
+    return getResourceAsyncPure(extensionID, resources, path)
 }

@@ -20,6 +20,7 @@ import { createFetch } from './fetch'
 import { openEnhanced, closeEnhanced } from './window.open+close'
 import { SystemJSRealm } from '../realms'
 import { enhancedWorker } from '../hijacks/Worker.prototype.constructor'
+import { getResourceAsync } from '../utils/Resources'
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -140,7 +141,11 @@ export class WebExtensionContentScriptEnvironment extends SystemJSRealm {
         }
         this.esRealm.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
     }
-    protected fetch = createFetch(this.extensionID)
+    protected fetch = async (url: string) => {
+        const res = await getResourceAsync(this.extensionID, {}, url)
+        if (res) return new Response(res, { status: 200, statusText: 'OK' })
+        return new Response('', { status: 404, statusText: 'NOT FOUND' })
+    }
 }
 /**
  * Many native methods requires `this` points to a native object
