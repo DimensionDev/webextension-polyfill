@@ -4,7 +4,7 @@ import { systemjsNameNoLeakTransformer } from './systemjs-transformer'
 import { checkDynamicImport } from './has-dynamic-import'
 
 export const scriptTransformCache = new Map<string, string>()
-export const moduleTransformCache = new Map<string, string>()
+const moduleTransformCache = new Map<string, string>()
 export const PrebuiltVersion = 0
 /**
  * For scripts, we treat it as a module with no static import/export.
