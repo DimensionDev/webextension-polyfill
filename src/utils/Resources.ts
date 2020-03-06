@@ -8,11 +8,11 @@ function normalizePath(path: string, extensionID: string) {
     if (path.startsWith(prefix)) return debugModeURLRewrite(extensionID, path)
     else return debugModeURLRewrite(extensionID, new URL(path, prefix).toJSON())
 }
-function getPrefix(extensionID: string) {
+export function getPrefix(extensionID: string) {
     return 'holoflows-extension://' + extensionID + '/'
 }
 
-export function getResource(extensionID: string, resources: Record<string, string>, path: string): string | undefined {
+function getResource(extensionID: string, resources: Record<string, string>, path: string): string | undefined {
     // Normalization the resources
     // @ts-ignore
     if (!resources[normalized]) {
@@ -30,9 +30,10 @@ export function getResource(extensionID: string, resources: Record<string, strin
 
 export async function getResourceAsync(extensionID: string, resources: Record<string, string>, path: string) {
     const preloaded = getResource(extensionID, resources, path)
+    const url = normalizePath(path, extensionID)
+
     if (preloaded) return preloaded
 
-    const url = normalizePath(path, extensionID)
     const response = await FrameworkRPC.fetch(extensionID, { method: 'GET', url })
     const result = decodeStringOrBlob(response.data)
     if (result === null) return undefined

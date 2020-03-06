@@ -5,6 +5,7 @@ import { Manifest } from '../Extensions'
 import { getIDFromBlobURL } from './URL.create+revokeObjectURL'
 import { useInternalStorage } from '../internal'
 import { internalRPC } from '../RPCs/internal-rpc'
+import { getPrefix } from '../utils/Resources'
 
 const originalConfirm = window.confirm
 /**
@@ -36,7 +37,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest, proto: t
         }),
         runtime: NotImplementedProxy<typeof browser.runtime>({
             getURL(path) {
-                return `holoflows-extension://${extensionID}/${path}`
+                return getPrefix(extensionID) + path
             },
             getManifest() {
                 return JSON.parse(JSON.stringify(manifest))
@@ -114,9 +115,7 @@ export function BrowserFactory(extensionID: string, manifest: Manifest, proto: t
                 if (location.pathname === '/' + defaultName || location.pathname === '/' + manifestName) return window
                 return new Proxy(
                     {
-                        location: new URL(
-                            `holoflows-extension://${extensionID}/${manifestName || defaultName}`,
-                        ) as Partial<Location>,
+                        location: new URL(getPrefix(extensionID) + (manifestName || defaultName)) as Partial<Location>,
                     } as Partial<Window>,
                     {
                         get(_: any, key: any) {

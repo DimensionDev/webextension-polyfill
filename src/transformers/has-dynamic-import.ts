@@ -3,7 +3,6 @@ const cache = new Map<string, boolean>()
 export function checkDynamicImport(source: string): boolean {
     if (cache.has(source)) return cache.get(source)!
     let hasDyn = false
-    const sf = ts.createSourceFile('x.js', source, ts.ScriptTarget.ESNext, false, ts.ScriptKind.JS)
     function i(k: TransformationContext) {
         function visit(n: ts.Node): ts.VisitResult<ts.Node> {
             if (hasDyn) return n
@@ -19,6 +18,7 @@ export function checkDynamicImport(source: string): boolean {
         reportDiagnostics: true,
         compilerOptions: {
             target: ts.ScriptTarget.ESNext,
+            module: ts.ModuleKind.ESNext,
         },
     })
     cache.set(source, hasDyn)

@@ -74,16 +74,11 @@ const internalRPCLocalImplementation: InternalRPCMethods = {
             (await registerWebExtension(extensionID, manifest, {})).get(extensionID)!
         if (options.code) ext.environment.evaluateInlineScript(options.code)
         else if (options.file)
-            loadContentScript(
-                extensionID,
-                ext.manifest,
-                {
-                    js: [options.file],
-                    // TODO: check the permission to inject the script
-                    matches: ['<all_urls>'],
-                },
-                ext.preloadedResources,
-            )
+            loadContentScript(extensionID, {
+                js: [options.file],
+                // TODO: check the permission to inject the script
+                matches: ['<all_urls>'],
+            })
     },
 }
 export const internalRPC = AsyncCall<InternalRPCMethods>(internalRPCLocalImplementation, {

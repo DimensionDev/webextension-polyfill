@@ -2,6 +2,7 @@ import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { decodeStringOrBlob } from '../utils/StringOrBlob'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { isDebug } from '../debugger/isDebugMode'
+import { getPrefix } from '../utils/Resources'
 
 const origFetch = window.fetch
 export function createFetch(extensionID: string): typeof fetch {
@@ -12,7 +13,7 @@ export function createFetch(extensionID: string): typeof fetch {
             // Debug mode
             if (isDebug && (url.origin === location.origin || url.protocol === 'holoflows-extension:')) {
                 return origFetch(debugModeURLRewrite(extensionID, request.url), requestInit)
-            } else if (request.url.startsWith('holoflows-extension://' + extensionID + '/')) {
+            } else if (request.url.startsWith(getPrefix(extensionID))) {
                 return origFetch(requestInfo, requestInit)
             } else {
                 if (isDebug) return origFetch(requestInfo, requestInit)
