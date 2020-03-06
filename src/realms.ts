@@ -25,36 +25,39 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
         throw new Error('Invalid call')
     }
     protected async prepareImport() {}
+    /**
+     * This is a map for inline module.
+     * Key: script:random_number
+     * Value: module text
+     */
     private inlineModule = new Map<string, string>()
     resolve(url: string, parentUrl: string): string {
         if (this.inlineModule.has(url)) return url
         if (this.inlineModule.has(parentUrl)) parentUrl = this.global.location.href
         return new URL(url, parentUrl).toJSON()
     }
-    private runModuleExecutor(sourceText: string, src: string, prebuilt: boolean) {
-        const result = this.esRealm.evaluate(
-            sourceText,
-            {},
-            prebuilt ? {} : { transforms: [this.runtimeTransformer('module', src)] },
-        )
-        const executor = result as (System: this) => void
-        executor(this)
-    }
+
     protected async instantiate(url: string) {
+        const evalSourceText = (sourceText: string, src: string, prebuilt: boolean) => {
+            const opt = prebuilt ? {} : { transforms: [this.runtimeTransformer('module', src)] }
+            const result = this.esRealm.evaluate(sourceText, {}, opt)
+            const executor = result as (System: this) => void
+            executor(this)
+        }
         if (this.inlineModule.has(url)) {
             const sourceText = this.inlineModule.get(url)!
-            this.runModuleExecutor(sourceText, url, false)
+            evalSourceText(sourceText, url, false)
             return this.getRegister()
         }
 
         const prebuilt = await this.fetchPrebuilt('module', url)
         if (prebuilt) {
             const { content } = prebuilt
-            this.runModuleExecutor(content, url, true)
+            evalSourceText(content, url, true)
         } else {
             const code = await this.fetchSourceText(url)
             if (!code) throw new TypeError(`Failed to fetch dynamically imported module: ` + url)
-            this.runModuleExecutor(code, url, false)
+            evalSourceText(code, url, false)
             // ? The executor should call the register exactly once.
         }
         return this.getRegister()
@@ -90,13 +93,18 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     get global(): typeof globalThis & { browser: typeof browser } {
         return this.esRealm.global
     }
-    private invokeScriptKindSystemJSModule(executor: (System: this) => void, parentUrl: string) {
+    /**
+     * This function is used to execute script that with dynamic import
+     * @param executor The SystemJS format executor returned by the eval call
+     * @param scriptURL The script itself URL
+     */
+    private invokeScriptKindSystemJSModule(executor: (System: this) => void, scriptURL: string) {
         executor(this) // script mode with dynamic import
         const exportFn: System.ExportFn = () => {
             throw new SyntaxError(`Unexpected token 'export'`)
         }
         const context: System.Context = {
-            import: (id, self) => this.import(id, self ?? parentUrl),
+            import: (id, self) => this.import(id, self ?? scriptURL),
             get meta(): never {
                 throw new SyntaxError(`Cannot use 'import.meta' outside a module`)
             },
@@ -122,9 +130,28 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     async evaluateModule(path: string, parentUrl: string) {
         return this.import(path, parentUrl)
     }
+    /**
+     * Evaluate a inline ECMAScript module
+     * @param sourceText Source text
+     */
     async evaluateInlineModule(sourceText: string) {
-        return this.evaluateInlineTreatAsModule(sourceText)
+        const key = `script:` + Math.random().toString()
+        this.inlineModule.set(key, sourceText)
+        try {
+            return await this.import(key)
+        } finally {
+            this.inlineModule.delete(key)
+            this.delete?.(key)
+        }
     }
+    /**
+     * This function will run code in ECMAScript Script parsing mode
+     * which doesn't support static import/export or import.meta.
+     *
+     * But support dynamic import
+     * @param sourceText Source code
+     * @param scriptURL Script URL (optional)
+     */
     evaluateInlineScript(sourceText: string, scriptURL: string = this.getEvalFileName()) {
         const hasCache = scriptTransformCache.has(sourceText)
         const cache = scriptTransformCache.get(sourceText)
@@ -137,16 +164,6 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
             ? this.esRealm.evaluate(cache!)
             : this.esRealm.evaluate(sourceText, {}, transformer)) as (System: this) => void
         return this.invokeScriptKindSystemJSModule(executor, scriptURL)
-    }
-    private async evaluateInlineTreatAsModule(sourceText: string) {
-        const key = `script:` + Math.random().toString()
-        this.inlineModule.set(key, sourceText)
-        try {
-            return await this.import(key)
-        } finally {
-            this.inlineModule.delete(key)
-            this.delete?.(key)
-        }
     }
     //#endregion
 }
