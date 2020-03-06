@@ -88,8 +88,13 @@ if (isDebug) {
         'browser.tabs.remove': log(void 0),
         'browser.tabs.update': log({} as browser.tabs.Tab),
         async fetch(extensionID, r) {
-            const h = await origFetch(debugModeURLRewrite(extensionID, r.url)).then(x => x.text())
-            if (h) return { data: { content: h, mimeType: '', type: 'text' }, status: 200, statusText: 'ok' }
+            const req = await origFetch(debugModeURLRewrite(extensionID, r.url))
+            if (req.ok)
+                return {
+                    data: { content: await req.text(), mimeType: '', type: 'text' },
+                    status: 200,
+                    statusText: 'ok',
+                }
             return { data: { content: '', mimeType: '', type: 'text' }, status: 404, statusText: 'Not found' }
         },
     }

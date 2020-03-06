@@ -9,7 +9,7 @@ declare module 'realms-shim' {
 
     export interface Realm<GlobalObject extends object = typeof globalThis> {
         readonly global: GlobalObject
-        evaluate(sourceText: string, options?: Partial<Options>): unknown
+        evaluate(sourceText: string, endowments?: unknown, options?: Partial<Options>): unknown
         [Symbol.toStringTag]: 'Realm'
     }
     export interface RealmConstructor {

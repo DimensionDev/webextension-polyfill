@@ -18,10 +18,11 @@ import { Manifest } from '../Extensions'
 import { enhanceURL } from './URL.create+revokeObjectURL'
 import { createFetch } from './fetch'
 import { openEnhanced, closeEnhanced } from './window.open+close'
-import { SystemJSRealm } from '../realms'
+import { SystemJSRealm, ModuleKind } from '../realms'
 import { enhancedWorker } from '../hijacks/Worker.prototype.constructor'
 import { getResourceAsync } from '../utils/Resources'
 import { cloneObjectWithInternalSlot } from '../utils/internal-slot'
+import { PrebuiltVersion } from '../transformers'
 /**
  * Apply all WebAPIs to the clean sandbox created by Realm
  */
@@ -101,9 +102,16 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
         // }
         // this.esRealm.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
     }
-    protected fetch = async (url: string) => {
+    async fetchPrebuilt(kind: ModuleKind, url: string): Promise<{ content: string; asSystemJS: boolean } | null> {
+        const res = await this.fetchSourceText(url + `.prebuilt-${PrebuiltVersion}-${kind}`)
+        if (!res) return null
+        if (kind === 'module') return { content: res, asSystemJS: true }
+        const [flag] = res
+        return { content: res.slice(1), asSystemJS: flag === 'd' }
+    }
+    protected async fetchSourceText(url: string) {
         const res = await getResourceAsync(this.extensionID, {}, url)
-        if (res) return new Response(res, { status: 200, statusText: 'OK' })
-        return new Response('', { status: 404, statusText: 'NOT FOUND' })
+        if (res) return res
+        return null
     }
 }

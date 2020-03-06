@@ -119,7 +119,7 @@ function getContext(manifest: Manifest) {
 function untilDocumentReady() {
     if (document.readyState === 'complete') return Promise.resolve()
     return new Promise(resolve => {
-        document.addEventListener('readystatechange', () => document.readyState === 'complete' && resolve)
+        document.addEventListener('readystatechange', () => document.readyState === 'complete' && resolve())
     })
 }
 

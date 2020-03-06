@@ -8,13 +8,13 @@ import { isDebug } from './debugger/isDebugMode'
 import Realm from 'realms-shim'
 import ts from 'typescript'
 console.log('Loading dependencies from external', Realm, ts)
-Object.assign(globalThis, { ts: undefined, TypeScript: undefined, Realm: undefined })
 
 // ## Inject here
 
 if (isDebug) {
     // leaves your id here, and put your extension to /extension/{id}/
-    const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib']
+    // const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib']
+    const testIDs = ['griesruigerhuigreuijghrehgerhgerge']
     testIDs.forEach(id =>
         fetch('/extension/' + id + '/manifest.json')
             .then(x => x.text())
@@ -28,6 +28,13 @@ if (isDebug) {
             })
             .then(v => Object.assign(globalThis, { exts: v })),
     )
+} else {
+    // @ts-ignore
+    delete globalThis.ts
+    // @ts-ignore
+    delete globalThis.TypeScript
+    // @ts-ignore
+    delete globalThis.Realm
 }
 
 /**

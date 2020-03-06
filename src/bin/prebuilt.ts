@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve, basename } from 'path'
 import { transformAST, PrebuiltVersion } from '../transformers'
+import { checkDynamicImport } from '../transformers/has-dynamic-import'
 
 export function exec(sourceMapPathSemi: string, fileName: string) {
     const fileContent = readFileSync(fileName, 'utf-8')
@@ -14,7 +15,9 @@ export function exec(sourceMapPathSemi: string, fileName: string) {
     const sourceMapPath = 'holoflows-extension://' + sourceMapPathSemi
 
     writeFileSync(moduleOut, transformAST(fileContent, 'module', sourceMapPath))
-    writeFileSync(scriptOut, transformAST(fileContent, 'script', sourceMapPath))
+    const hasDynImport = checkDynamicImport(fileContent)
+    const scriptResult = transformAST(fileContent, 'script', sourceMapPath)
+    writeFileSync(scriptOut, (hasDynImport ? 'd' : 's') + scriptResult)
 }
 
 if (process.mainModule === module) {
