@@ -13,8 +13,8 @@ console.log('Loading dependencies from external', Realm, ts)
 
 if (isDebug) {
     // leaves your id here, and put your extension to /extension/{id}/
-    // const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib']
-    const testIDs = ['griesruigerhuigreuijghrehgerhgerge']
+    const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib']
+    // const testIDs = ['griesruigerhuigreuijghrehgerhgerge']
     testIDs.forEach(id =>
         fetch('/extension/' + id + '/manifest.json')
             .then(x => x.text())

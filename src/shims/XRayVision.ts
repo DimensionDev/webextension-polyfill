@@ -87,20 +87,20 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
         this.global.close = closeEnhanced(extensionID)
         this.global.Worker = enhancedWorker(extensionID)
         if (locationProxy) this.global.location = locationProxy
-        // function globalThisFix() {
-        //     var originalFunction = Function
-        //     function newFunction(...args: any[]) {
-        //         const fn = new originalFunction(...args)
-        //         return new Proxy(fn, {
-        //             apply(a, b, c) {
-        //                 return Reflect.apply(a, b || globalThis, c)
-        //             },
-        //         })
-        //     }
-        //     // @ts-ignore
-        //     globalThis.Function = newFunction
-        // }
-        // this.esRealm.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
+        function globalThisFix() {
+            var originalFunction = Function
+            function newFunction(...args: any[]) {
+                const fn = new originalFunction(...args)
+                return new Proxy(fn, {
+                    apply(a, b, c) {
+                        return Reflect.apply(a, b || globalThis, c)
+                    },
+                })
+            }
+            // @ts-ignore
+            globalThis.Function = newFunction
+        }
+        this.esRealm.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
     }
     async fetchPrebuilt(kind: ModuleKind, url: string): Promise<{ content: string; asSystemJS: boolean } | null> {
         const res = await this.fetchSourceText(url + `.prebuilt-${PrebuiltVersion}-${kind}`)
