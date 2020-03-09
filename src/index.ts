@@ -29,12 +29,12 @@ if (isDebug) {
             .then(v => Object.assign(globalThis, { exts: v })),
     )
 } else {
-    // @ts-ignore
-    delete globalThis.ts
-    // @ts-ignore
-    delete globalThis.TypeScript
-    // @ts-ignore
-    delete globalThis.Realm
+    /** ? Can't delete a global variable */
+    Object.assign(globalThis, {
+        ts: undefined,
+        TypeScript: undefined,
+        Realm: undefined,
+    })
 }
 
 /**
