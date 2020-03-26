@@ -9,7 +9,6 @@
     "async-call-rpc": "^1.0.4",
     "realms-shim": "^1.2.1",
     "systemjs": "^6.2.3",
-    "typescript": "^3.7.5",
     "web-ext-types": "^3.2.1"
   },
   "devDependencies": {
@@ -18,11 +17,15 @@
     "react-devtools": "^4.4.0",
     "rollup": "^1.31.0",
     "rollup-plugin-typescript2": "^0.25.3",
-    "uglify-es": "^3.3.9"
+    "uglify-es": "^3.3.9",
+    "typescript": "^3.8.3"
   },
   "scripts": {
     "start": "rollup -c -w",
     "build": "rollup -c",
     "serve": "serve ."
+  },
+  "peerDependencies": {
+    "typescript": "^3.8.3"
   }
 }
