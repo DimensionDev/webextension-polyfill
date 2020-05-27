@@ -5,7 +5,7 @@ import { useInternalStorage } from '../internal'
 import { isDebug, parseDebugModeURL } from './isDebugMode'
 import { debugModeURLRewrite } from './url-rewrite'
 
-const log: <T>(rt: T) => (...args: any[]) => Promise<T> = rt => async (...args) => {
+const log: <T>(rt: T) => (...args: any[]) => Promise<T> = (rt) => async (...args) => {
     console.log('Mocked Host', ...args)
     return rt!
 }
@@ -13,7 +13,7 @@ const log: <T>(rt: T) => (...args: any[]) => Promise<T> = rt => async (...args) 
 class CrossPageDebugChannel {
     broadcast = new BroadcastChannel('webext-polyfill-debug')
     constructor() {
-        this.broadcast.addEventListener('message', e => {
+        this.broadcast.addEventListener('message', (e) => {
             if (e.origin !== location.origin) console.warn(e.origin, location.origin)
             const detail = e.data
             for (const f of this.listener) {
@@ -68,7 +68,7 @@ if (isDebug) {
         },
         'browser.storage.local.remove': log(void 0),
         async 'browser.storage.local.set'(extensionID, d) {
-            useInternalStorage(extensionID, o => (o.debugModeStorage = Object.assign({}, o.debugModeStorage, d)))
+            useInternalStorage(extensionID, (o) => (o.debugModeStorage = Object.assign({}, o.debugModeStorage, d)))
         },
         async 'browser.tabs.create'(extensionID, options) {
             if (!options.url) throw new TypeError('need a url')
@@ -78,7 +78,7 @@ if (isDebug) {
             param.set('url', options.url)
             param.set('type', options.url.startsWith('holoflows-extension://') ? 'p' : 'm')
             a.href = '/?' + param
-            a.innerText = 'browser.tabs.create: ' + options.url
+            a.innerText = 'browser.tabs.create: Please click to open it: ' + options.url
             a.target = '_blank'
             a.style.color = 'white'
             document.body.appendChild(a)
@@ -96,6 +96,16 @@ if (isDebug) {
                     statusText: 'ok',
                 }
             return { data: { content: '', mimeType: '', type: 'text' }, status: 404, statusText: 'Not found' }
+        },
+        async eval(eid, string) {
+            const x = eval
+            try {
+                x(string)
+            } catch (e) {
+                console.log(string)
+                console.error(e)
+                throw e
+            }
         },
     }
     AsyncCall(host, {

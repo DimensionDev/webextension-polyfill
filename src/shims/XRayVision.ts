@@ -8,7 +8,7 @@
  *
  * ## Checklist:
  * - [o] ContentScript cannot access main thread
- * - [?] Main thread cannot access ContentScript
+ * - [ ] Main thread cannot access ContentScript
  * - [o] ContentScript can access main thread's DOM
  * - [ ] ContentScript modification on DOM prototype is not discoverable by main thread
  * - [ ] Main thread modification on DOM prototype is not discoverable by ContentScript
@@ -29,33 +29,32 @@ import { PrebuiltVersion } from '../transformers'
 const PrepareWebAPIs = (() => {
     // ? replace Function with polluted version by Realms
     // ! this leaks the sandbox!
-    Object.defineProperty(
-        Object.getPrototypeOf(() => {}),
-        'constructor',
-        {
-            value: globalThis.Function,
-        },
-    )
+    // We're no longer using realms now.
+    // Object.defineProperty(
+    //     Object.getPrototypeOf(() => {}),
+    //     'constructor',
+    //     {
+    //         value: globalThis.Function,
+    //     },
+    // )
     const realWindow = window
     const webAPIs = Object.getOwnPropertyDescriptors(window)
-    Reflect.deleteProperty(webAPIs, 'globalThis')
-    Reflect.deleteProperty(webAPIs, 'self')
-    Reflect.deleteProperty(webAPIs, 'global')
     return (sandboxRoot: typeof globalThis, locationProxy?: Location) => {
-        const sandboxDocument = cloneObjectWithInternalSlot(document, sandboxRoot, {
-            descriptorsModifier(obj, desc) {
-                if ('defaultView' in desc) desc.defaultView.get = () => sandboxRoot
-                return desc
-            },
-        })
+        // ?
+        // const sandboxDocument = cloneObjectWithInternalSlot(document, sandboxRoot, {
+        //     descriptorsModifier(obj, desc) {
+        //         if ('defaultView' in desc) desc.defaultView.get = () => sandboxRoot
+        //         return desc
+        //     },
+        // })
         const clonedWebAPIs: Record<string, PropertyDescriptor> = {
             ...(webAPIs as any),
-            window: { configurable: false, writable: false, enumerable: true, value: sandboxRoot },
-            document: { configurable: false, enumerable: true, get: () => sandboxDocument },
+            // document: { configurable: false, enumerable: true, get: () => sandboxDocument },
         }
+        for (const key in clonedWebAPIs)
+            if (clonedWebAPIs[key].value === globalThis) clonedWebAPIs[key].value = sandboxRoot
         if (locationProxy) clonedWebAPIs.location.value = locationProxy
         for (const key in clonedWebAPIs) if (key in sandboxRoot) delete clonedWebAPIs[key]
-        Object.assign(sandboxRoot, { globalThis: sandboxRoot, self: sandboxRoot })
         cloneObjectWithInternalSlot(realWindow, sandboxRoot, {
             nextObject: sandboxRoot,
             designatedOwnDescriptors: clonedWebAPIs,
@@ -74,19 +73,19 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
     constructor(public extensionID: string, public manifest: Manifest, locationProxy?: Location) {
         super()
         console.log('[WebExtension] Managed Realm created.')
-        PrepareWebAPIs(this.global, locationProxy)
-        const browser = BrowserFactory(this.extensionID, this.manifest, this.global.Object.prototype)
-        Object.defineProperty(this.global, 'browser', {
+        PrepareWebAPIs(this.globalThis, locationProxy)
+        const browser = BrowserFactory(this.extensionID, this.manifest, this.globalThis.Object.prototype)
+        Object.defineProperty(this.globalThis, 'browser', {
             // ? Mozilla's polyfill may overwrite this. Figure this out.
             get: () => browser,
             set: () => false,
         })
-        this.global.URL = enhanceURL(this.global.URL, extensionID)
-        this.global.fetch = createFetch(extensionID)
-        this.global.open = openEnhanced(extensionID)
-        this.global.close = closeEnhanced(extensionID)
-        this.global.Worker = enhancedWorker(extensionID)
-        if (locationProxy) this.global.location = locationProxy
+        this.globalThis.URL = enhanceURL(this.globalThis.URL, extensionID)
+        this.globalThis.fetch = createFetch(extensionID)
+        this.globalThis.open = openEnhanced(extensionID)
+        this.globalThis.close = closeEnhanced(extensionID)
+        this.globalThis.Worker = enhancedWorker(extensionID)
+        if (locationProxy) this.globalThis.location = locationProxy
         function globalThisFix() {
             var originalFunction = Function
             function newFunction(...args: any[]) {

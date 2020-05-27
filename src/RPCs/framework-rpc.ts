@@ -177,6 +177,12 @@ export interface FrameworkImplementation {
         statusText: string
         data: FrameworkStringOrBlob
     }>
+    /**
+     * When this method is invoked, host should run webview.evaluateJavaScript on the requesting tab
+     * @param extensionID Extension ID
+     * @param string Code to execute
+     */
+    eval(extensionID: string, string: string): Promise<void>
     //#endregion
 }
 /**
@@ -212,7 +218,7 @@ export interface FrameworkMayInvokeMethods {
 const key = 'holoflowsjsonrpc'
 class iOSWebkitChannel {
     constructor() {
-        document.addEventListener(key, e => {
+        document.addEventListener(key, (e) => {
             const detail = (e as CustomEvent<any>).detail
             for (const f of this.listener) {
                 try {

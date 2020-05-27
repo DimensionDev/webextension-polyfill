@@ -1,25 +1,34 @@
-import Realm from 'realms-shim'
 import { transformAST, scriptTransformCache } from './transformers'
 // See: https://github.com/systemjs/systemjs/issues/2123
-import 'systemjs'
+/// <reference lib="systemjs" />
 import 'systemjs/dist/s.js'
 import { checkDynamicImport } from './transformers/has-dynamic-import'
+import { FrameworkRPC } from './RPCs/framework-rpc'
+import { gen_static_eval } from './static'
 const SystemJSConstructor: { new (): typeof System } & typeof System = System.constructor as any
 Reflect.deleteProperty(globalThis, 'System')
 export type ModuleKind = 'module' | 'script'
+
+const { set } = Reflect
 export abstract class SystemJSRealm extends SystemJSConstructor {
+    readonly [Symbol.toStringTag] = 'Realm'
+    readonly globalThis: typeof globalThis & { browser: typeof browser } = { __proto__: null } as any
+    constructor() {
+        super()
+        set(globalThis, this.#globalScopeSymbol, this.globalThis)
+    }
     /** Fetch the file that the SystemJSRealm requires for module loading */
     protected abstract async fetchPrebuilt(
         kind: ModuleKind,
         url: string,
     ): Promise<{ content: string; asSystemJS: boolean } | null>
     protected abstract async fetchSourceText(url: string): Promise<string | null>
-    readonly [Symbol.toStringTag] = 'Realm'
+    readonly #globalScopeSymbol = Symbol.for(Math.random().toString())
     //#region System
     /** Create import.meta */
     protected createContext(url: string): object {
-        if (url.startsWith('script:')) return this.global.eval('({ url: undefined })')
-        return this.global.JSON.parse(JSON.stringify({ url }))
+        if (url.startsWith('script:')) return this.globalThis.JSON.parse(JSON.stringify({ url: null }))
+        return this.globalThis.JSON.parse(JSON.stringify({ url }))
     }
     protected createScript() {
         throw new Error('Invalid call')
@@ -30,34 +39,33 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
      * Key: script:random_number
      * Value: module text
      */
-    private inlineModule = new Map<string, string>()
+    readonly #inlineModule = new Map<string, string>()
     resolve(url: string, parentUrl: string): string {
-        if (this.inlineModule.has(url)) return url
-        if (this.inlineModule.has(parentUrl)) parentUrl = this.global.location.href
+        if (this.#inlineModule.has(url)) return url
+        if (this.#inlineModule.has(parentUrl)) parentUrl = this.globalThis.location.href
         return new URL(url, parentUrl).toJSON()
     }
 
     protected async instantiate(url: string) {
-        const evalSourceText = (sourceText: string, src: string, prebuilt: boolean) => {
-            const opt = prebuilt ? {} : { transforms: [this.runtimeTransformer('module', src)] }
-            const result = this.esRealm.evaluate(sourceText, {}, opt)
+        const evalSourceText = async (sourceText: string, src: string, prebuilt: boolean) => {
+            const result = await this.esRealm.evaluate(sourceText, [this.#runtimeTransformer('module', src, prebuilt)])
             const executor = result as (System: this) => void
             executor(this)
         }
-        if (this.inlineModule.has(url)) {
-            const sourceText = this.inlineModule.get(url)!
-            evalSourceText(sourceText, url, false)
+        if (this.#inlineModule.has(url)) {
+            const sourceText = this.#inlineModule.get(url)!
+            await evalSourceText(sourceText, url, false)
             return this.getRegister()
         }
 
         const prebuilt = await this.fetchPrebuilt('module', url)
         if (prebuilt) {
             const { content } = prebuilt
-            evalSourceText(content, url, true)
+            await evalSourceText(content, url, true)
         } else {
             const code = await this.fetchSourceText(url)
             if (!code) throw new TypeError(`Failed to fetch dynamically imported module: ` + url)
-            evalSourceText(code, url, false)
+            await evalSourceText(code, url, false)
             // ? The executor should call the register exactly once.
         }
         return this.getRegister()
@@ -76,23 +84,19 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     }
     //#endregion
     //#region Realm
-    private runtimeTransformer = (kind: ModuleKind, fileName: string) => ({
-        rewrite: (ctx: { src: string }) => {
-            ctx.src = transformAST(ctx.src, kind, fileName)
-            return ctx
+    #runtimeTransformer = (kind: ModuleKind, fileName: string, prebuilt: boolean) => (src: string) =>
+        prebuilt ? src : transformAST(src, kind, fileName)
+    protected esRealm = {
+        evaluate: async (sourceText: string, transformer?: ((sourceText: string) => string)[]): Promise<unknown> => {
+            const id = Symbol.for(Math.random().toString())
+            const evaluateDone = new Promise<unknown>((resolve) => set(globalThis, id, (x: any) => resolve(x)))
+            transformer?.forEach((f) => (sourceText = f(sourceText)))
+            await FrameworkRPC.eval('', gen_static_eval(sourceText, this.#globalScopeSymbol, id))
+            return evaluateDone
         },
-    })
-    protected esRealm = Realm.makeRootRealm({
-        sloppyGlobals: true,
-        transforms: [],
-    })
-    private id = 0
-    private getEvalFileName() {
-        return `debugger://${this.global.browser.runtime.id}/VM${++this.id}`
     }
-    get global(): typeof globalThis & { browser: typeof browser } {
-        return this.esRealm.global
-    }
+    #id = 0
+    #getEvalFileName = () => `debugger://${this.globalThis.browser.runtime.id}/VM${++this.#id}`
     /**
      * This function is used to execute script that with dynamic import
      * @param executor The SystemJS format executor returned by the eval call
@@ -117,7 +121,7 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
         const prebuilt = await this.fetchPrebuilt('script', scriptURL)
         if (prebuilt) {
             const { asSystemJS, content } = prebuilt
-            const executeResult = this.esRealm.evaluate(content) as (System: this) => void
+            const executeResult = (await this.esRealm.evaluate(content)) as (System: this) => void
             if (!asSystemJS) return executeResult as unknown // script mode
             return this.invokeScriptKindSystemJSModule(executeResult, scriptURL)
         }
@@ -136,11 +140,11 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
      */
     async evaluateInlineModule(sourceText: string) {
         const key = `script:` + Math.random().toString()
-        this.inlineModule.set(key, sourceText)
+        this.#inlineModule.set(key, sourceText)
         try {
             return await this.import(key)
         } finally {
-            this.inlineModule.delete(key)
+            this.#inlineModule.delete(key)
             this.delete?.(key)
         }
     }
@@ -152,17 +156,17 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
      * @param sourceText Source code
      * @param scriptURL Script URL (optional)
      */
-    evaluateInlineScript(sourceText: string, scriptURL: string = this.getEvalFileName()) {
+    async evaluateInlineScript(sourceText: string, scriptURL: string = this.#getEvalFileName()) {
         const hasCache = scriptTransformCache.has(sourceText)
         const cache = scriptTransformCache.get(sourceText)
-        const transformer = { transforms: [this.runtimeTransformer('script', scriptURL)] }
+        const transformer = [this.#runtimeTransformer('script', scriptURL, false)]
         if (!checkDynamicImport(sourceText)) {
             if (hasCache) return this.esRealm.evaluate(cache!)
-            return this.esRealm.evaluate(sourceText, {}, transformer)
+            return this.esRealm.evaluate(sourceText, transformer)
         }
         const executor = (hasCache
-            ? this.esRealm.evaluate(cache!)
-            : this.esRealm.evaluate(sourceText, {}, transformer)) as (System: this) => void
+            ? await this.esRealm.evaluate(cache!)
+            : await this.esRealm.evaluate(sourceText, transformer)) as (System: this) => void
         return this.invokeScriptKindSystemJSModule(executor, scriptURL)
     }
     //#endregion

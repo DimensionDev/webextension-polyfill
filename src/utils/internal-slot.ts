@@ -55,31 +55,34 @@ function getPrototypeChain(o: object, _: object[] = []): object[] {
  *
  * To prevent `this` binding lost, we need to rebind it.
  *
- * @param desc PropertyDescriptor
+ * @param descriptor PropertyDescriptor
  * @param native The native object
  */
-function PatchThisOfDescriptorToNative(desc: PropertyDescriptor, native: object) {
-    const { get, set, value } = desc
-    if (get) desc.get = () => get.apply(native)
-    if (set) desc.set = (val: any) => set.apply(native, val)
+function PatchThisOfDescriptorToNative(descriptor: PropertyDescriptor, native: object) {
+    const { get, set, value } = descriptor
+    if (get) descriptor.get = () => get.apply(native)
+    if (set) descriptor.set = (val: any) => set.apply(native, val)
     if (value && typeof value === 'function') {
-        const desc2 = Object.getOwnPropertyDescriptors(value)
-        desc.value = function() {
-            if (new.target) return Reflect.construct(value, arguments, new.target)
-            return Reflect.apply(value, native, arguments)
-        }
-        delete desc2.arguments
-        delete desc2.caller
-        delete desc2.callee
-        Object.defineProperties(desc.value, desc2)
-        try {
-            // ? For unknown reason this fail for some objects on Safari.
-            value.prototype && Object.setPrototypeOf(desc.value, value.prototype)
-        } catch {}
+        const nextDescriptor = Object.getOwnPropertyDescriptors(value)
+        const f = {
+            [value.name]: function () {
+                if (new.target) return Reflect.construct(value, arguments, new.target)
+                return Reflect.apply(value, native, arguments)
+            },
+        }[value.name]
+        descriptor.value = f
+        // Hmm give it a better view.
+        f.toString = ((f: string) => () => `function ${f}() { [native code] }`)(value.name)
+        delete nextDescriptor.arguments
+        delete nextDescriptor.caller
+        delete nextDescriptor.callee
+        Object.defineProperties(f, nextDescriptor)
+        Object.setPrototypeOf(f, value.__proto__)
     }
 }
-function PatchThisOfDescriptors(desc: Record<string, PropertyDescriptor>, native: object): typeof desc {
-    const _ = Object.entries(desc).map(([x, y]) => [x, { ...y }] as const)
-    _.forEach(x => PatchThisOfDescriptorToNative(x[1], native))
+function PatchThisOfDescriptors(desc: Record<string | symbol, PropertyDescriptor>, native: object): typeof desc {
+    const _ = Object.entries(desc).map(([x, y]) => [x as string | symbol, { ...y }] as const)
+    Object.getOwnPropertySymbols(desc).forEach((x) => _.push([x, { ...desc[x as any] }]))
+    _.forEach((x) => PatchThisOfDescriptorToNative(x[1], native))
     return Object.fromEntries(_)
 }

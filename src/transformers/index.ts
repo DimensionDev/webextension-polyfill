@@ -2,10 +2,11 @@ import ts from 'typescript'
 import { thisTransformation } from './this-transformer'
 import { systemjsNameNoLeakTransformer } from './systemjs-transformer'
 import { checkDynamicImport } from './has-dynamic-import'
+import { lastExprValue } from './last-expr-value'
 
 export const scriptTransformCache = new Map<string, string>()
 const moduleTransformCache = new Map<string, string>()
-export const PrebuiltVersion = 0
+export const PrebuiltVersion = 1
 /**
  * For scripts, we treat it as a module with no static import/export.
  */
@@ -14,11 +15,13 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
     if (cache.has(src)) return cache.get(src)!
     const hasDynamicImport = checkDynamicImport(src)
     const scriptBefore = undefined
-    const scriptAfter = [thisTransformation, hasDynamicImport ? systemjsNameNoLeakTransformer : undefined!].filter(
-        x => x,
-    )
+    const scriptAfter = [
+        thisTransformation,
+        hasDynamicImport ? systemjsNameNoLeakTransformer : undefined!,
+        lastExprValue,
+    ].filter((x) => x)
     const moduleBefore = undefined
-    const moduleAfter = [systemjsNameNoLeakTransformer]
+    const moduleAfter = [systemjsNameNoLeakTransformer, lastExprValue].filter((x) => x)
     function getSourcePath(): { sourceRoot?: string; fileName: string } {
         const _ = path.split('/')
         const filename = _.pop()!
@@ -40,9 +43,10 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
             module: hasDynamicImport || kind === 'module' ? ts.ModuleKind.System : ts.ModuleKind.ESNext,
             // ? A comment in React dev will make a false positive on realms checker
             removeComments: true,
-            inlineSourceMap: true,
-            inlineSources: true,
-            sourceRoot,
+            sourceMap: false,
+            // inlineSourceMap: true,
+            // inlineSources: true,
+            // sourceRoot,
         },
         fileName,
     })
@@ -67,7 +71,7 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
                 getLineWithNo(endLineNum + 1),
                 getLineWithNo(endLineNum + 2),
                 getLineWithNo(endLineNum + 3),
-            ].filter(x => x) as string[]
+            ].filter((x) => x) as string[]
             errText += `\n${aroundLines.join('\n')}\n`
         }
         error.push(new SyntaxError(errText))
