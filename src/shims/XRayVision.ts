@@ -61,6 +61,8 @@ const PrepareWebAPIs = (() => {
         })
     }
 })()
+const { log, warn } = console
+const { construct } = Reflect
 /**
  * Execution environment of managed Realm (including content script in production and all env in runtime).
  */
@@ -72,7 +74,7 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
      */
     constructor(public extensionID: string, public manifest: Manifest, locationProxy?: Location) {
         super()
-        console.log('[WebExtension] Managed Realm created.')
+        log('[WebExtension] Managed Realm created.')
         PrepareWebAPIs(this.globalThis, locationProxy)
         const browser = BrowserFactory(this.extensionID, this.manifest, this.globalThis.Object.prototype)
         Object.defineProperty(this.globalThis, 'browser', {
@@ -86,20 +88,6 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
         this.globalThis.close = closeEnhanced(extensionID)
         this.globalThis.Worker = enhancedWorker(extensionID)
         if (locationProxy) this.globalThis.location = locationProxy
-        function globalThisFix() {
-            var originalFunction = Function
-            function newFunction(...args: any[]) {
-                const fn = new originalFunction(...args)
-                return new Proxy(fn, {
-                    apply(a, b, c) {
-                        return Reflect.apply(a, b || globalThis, c)
-                    },
-                })
-            }
-            // @ts-ignore
-            globalThis.Function = newFunction
-        }
-        this.esRealm.evaluate(globalThisFix.toString() + '\n' + globalThisFix.name + '()')
     }
     async fetchPrebuilt(kind: ModuleKind, url: string): Promise<{ content: string; asSystemJS: boolean } | null> {
         const res = await this.fetchSourceText(url + `.prebuilt-${PrebuiltVersion}-${kind}`)

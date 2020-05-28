@@ -4,15 +4,61 @@ import { transformAST, scriptTransformCache } from './transformers'
 import 'systemjs/dist/s.js'
 import { checkDynamicImport } from './transformers/has-dynamic-import'
 import { FrameworkRPC } from './RPCs/framework-rpc'
-import { gen_static_eval } from './static'
+import { generateEvalString } from './static'
 const SystemJSConstructor: { new (): typeof System } & typeof System = System.constructor as any
 Reflect.deleteProperty(globalThis, 'System')
 export type ModuleKind = 'module' | 'script'
 
-const { set } = Reflect
-export abstract class SystemJSRealm extends SystemJSConstructor {
+const { set, construct, apply, deleteProperty } = Reflect
+const { warn, trace } = console
+export abstract class SystemJSRealm extends SystemJSConstructor implements Realm {
+    //#region Realm
     readonly [Symbol.toStringTag] = 'Realm'
-    readonly globalThis: typeof globalThis & { browser: typeof browser } = { __proto__: null } as any
+    readonly #globalScopeSymbol = Symbol.for(Math.random().toString())
+    readonly #globalThis: typeof globalThis & { browser: typeof browser } = {
+        __proto__: null,
+        /**
+         * Due to tech limitation, the eval will always be
+         * PerformEval(code,
+         *      callerRealm = this SystemJSRealm,
+         *      strictCaller = false,
+         *      direct = false)
+         */
+        eval: (code: unknown) => {
+            // 18.2.1.1, step 2
+            if (typeof code !== 'string') return code
+            trace(`[WebExtension] Try to eval`, code)
+            if (!checkDynamicImport(code))
+                // Might be a Promise if the host enable CSP.
+                return this.#evaluate(code, [this.#runtimeTransformer('script', 'prebuilt', false)])
+            // Sadly, must return a Promise here.
+            return this.evaluateInlineScript(code)
+        },
+        Function: new Proxy(Function, {
+            construct: (target, argArray: any[], newTarget) => {
+                trace('[WebExtension] try to call new Function the following code:', ...argArray)
+                if (argArray.length === 1 && argArray[0] === 'return this') return () => this.globalThis
+                // TODO: impl this
+                throw new Error('Cannot run code dynamically')
+                // return construct(target, argArray, newTarget)
+            },
+            apply: (target, thisArg, code: any[]) => {
+                // Hack for babel regeneratorRuntime
+                if (code.length === 1 && code[0] === 'return this') return () => this.globalThis
+                if (code.length === 2 && code[0] === 'r' && code[1] === 'regeneratorRuntime = r')
+                    // @ts-ignore
+                    return (r: any) => (this.globalThis.regeneratorRuntime = r)
+                warn('[WebExtension]: try to construct Function by the following code:', ...code)
+                throw new Error('Cannot run code dynamically')
+                // return apply(target, thisArg, code)
+            },
+        }),
+    } as any
+    get globalThis() {
+        return this.#globalThis
+    }
+    // The import() function is implemented by SystemJS
+    //#endregion
     constructor() {
         super()
         set(globalThis, this.#globalScopeSymbol, this.globalThis)
@@ -23,7 +69,6 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
         url: string,
     ): Promise<{ content: string; asSystemJS: boolean } | null>
     protected abstract async fetchSourceText(url: string): Promise<string | null>
-    readonly #globalScopeSymbol = Symbol.for(Math.random().toString())
     //#region System
     /** Create import.meta */
     protected createContext(url: string): object {
@@ -48,7 +93,7 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
 
     protected async instantiate(url: string) {
         const evalSourceText = async (sourceText: string, src: string, prebuilt: boolean) => {
-            const result = await this.esRealm.evaluate(sourceText, [this.#runtimeTransformer('module', src, prebuilt)])
+            const result = await this.#evaluate(sourceText, [this.#runtimeTransformer('module', src, prebuilt)])
             const executor = result as (System: this) => void
             executor(this)
         }
@@ -86,14 +131,32 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     //#region Realm
     #runtimeTransformer = (kind: ModuleKind, fileName: string, prebuilt: boolean) => (src: string) =>
         prebuilt ? src : transformAST(src, kind, fileName)
-    protected esRealm = {
-        evaluate: async (sourceText: string, transformer?: ((sourceText: string) => string)[]): Promise<unknown> => {
-            const id = Symbol.for(Math.random().toString())
-            const evaluateDone = new Promise<unknown>((resolve) => set(globalThis, id, (x: any) => resolve(x)))
-            transformer?.forEach((f) => (sourceText = f(sourceText)))
-            await FrameworkRPC.eval('', gen_static_eval(sourceText, this.#globalScopeSymbol, id))
-            return evaluateDone
-        },
+    #evaluate = (sourceText: string, transformer?: ((sourceText: string) => string)[]): unknown | Promise<unknown> => {
+        const evalCallbackID = Symbol.for(Math.random().toString())
+        let result = undefined
+        let rejection = (e: Error) => {}
+        const evaluation = new Promise<unknown>((resolve, reject) =>
+            set(globalThis, evalCallbackID, (x: any) => {
+                result = x
+                resolve(x)
+                rejection = reject
+            }),
+        )
+        evaluation.finally(() => deleteProperty(globalThis, evalCallbackID))
+        transformer?.forEach((f) => (sourceText = f(sourceText)))
+        const evalString = generateEvalString(sourceText, this.#globalScopeSymbol, evalCallbackID)
+        try {
+            const _indirectEval = eval
+            _indirectEval(evalString)
+            return result
+        } catch (e) {
+            warn('Failed to eval sync: ', e)
+        }
+        setTimeout(rejection, 2000)
+        return FrameworkRPC.eval('', evalString).then(
+            () => evaluation,
+            (e) => (rejection(e), evaluation),
+        )
     }
     #id = 0
     #getEvalFileName = () => `debugger://${this.globalThis.browser.runtime.id}/VM${++this.#id}`
@@ -117,11 +180,10 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     }
     async evaluateScript(path: string, parentUrl: string): Promise<unknown> {
         const scriptURL = await this.resolve(path, parentUrl)
-
         const prebuilt = await this.fetchPrebuilt('script', scriptURL)
         if (prebuilt) {
             const { asSystemJS, content } = prebuilt
-            const executeResult = (await this.esRealm.evaluate(content)) as (System: this) => void
+            const executeResult = (await this.#evaluate(content)) as (System: this) => void
             if (!asSystemJS) return executeResult as unknown // script mode
             return this.invokeScriptKindSystemJSModule(executeResult, scriptURL)
         }
@@ -137,6 +199,8 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
     /**
      * Evaluate a inline ECMAScript module
      * @param sourceText Source text
+     *
+     * @deprecated This method is not compatible with CSP and might be rejected by the host.
      */
     async evaluateInlineModule(sourceText: string) {
         const key = `script:` + Math.random().toString()
@@ -155,18 +219,20 @@ export abstract class SystemJSRealm extends SystemJSConstructor {
      * But support dynamic import
      * @param sourceText Source code
      * @param scriptURL Script URL (optional)
+     *
+     * @deprecated This method is not compatible with CSP and might be rejected by the host.
      */
     async evaluateInlineScript(sourceText: string, scriptURL: string = this.#getEvalFileName()) {
         const hasCache = scriptTransformCache.has(sourceText)
         const cache = scriptTransformCache.get(sourceText)
         const transformer = [this.#runtimeTransformer('script', scriptURL, false)]
         if (!checkDynamicImport(sourceText)) {
-            if (hasCache) return this.esRealm.evaluate(cache!)
-            return this.esRealm.evaluate(sourceText, transformer)
+            if (hasCache) return this.#evaluate(cache!)
+            return this.#evaluate(sourceText, transformer)
         }
-        const executor = (hasCache
-            ? await this.esRealm.evaluate(cache!)
-            : await this.esRealm.evaluate(sourceText, transformer)) as (System: this) => void
+        const executor = (hasCache ? await this.#evaluate(cache!) : await this.#evaluate(sourceText, transformer)) as (
+            System: this,
+        ) => void
         return this.invokeScriptKindSystemJSModule(executor, scriptURL)
     }
     //#endregion
