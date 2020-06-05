@@ -11,6 +11,15 @@ export type ModuleKind = 'module' | 'script'
 
 const { set, construct, apply, deleteProperty } = Reflect
 const { warn, trace } = console
+const { eval: indirectEval } = globalThis
+const canUseEval = (() => {
+    try {
+        indirectEval('Math.random()')
+        return true
+    } catch {
+        return false
+    }
+})()
 export abstract class SystemJSRealm extends SystemJSConstructor implements Realm {
     //#region Realm
     readonly [Symbol.toStringTag] = 'Realm'
@@ -145,12 +154,8 @@ export abstract class SystemJSRealm extends SystemJSConstructor implements Realm
         evaluation.finally(() => deleteProperty(globalThis, evalCallbackID))
         transformer?.forEach((f) => (sourceText = f(sourceText)))
         const evalString = generateEvalString(sourceText, this.#globalScopeSymbol, evalCallbackID)
-        try {
-            const _indirectEval = eval
-            _indirectEval(evalString)
-            return result
-        } catch (e) {
-            warn('Failed to eval sync: ', e)
+        if (canUseEval) {
+            return indirectEval(evalString)
         }
         setTimeout(rejection, 2000)
         return FrameworkRPC.eval('', evalString).then(
