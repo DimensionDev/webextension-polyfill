@@ -40,6 +40,15 @@ export async function registerWebExtension(
         const opt = parseDebugModeURL(extensionID, manifest)
         environment = opt.env
         debugModeURL = opt.src
+        const g = () => registeredWebExtension.get(extensionID)!
+        Object.defineProperties(globalThis, {
+            ['e' + extensionID]: { get: () => g() },
+            ['r' + extensionID]: { get: () => g().environment },
+            ['g' + extensionID]: { get: () => g().environment.globalThis },
+        })
+        console.log(
+            `Extension ${extensionID} registered. Access it's WebExtensionRecord by e${extensionID}; it's Realm by r${extensionID}; it's globalThis object by g${extensionID}`,
+        )
     }
     console.debug(
         `[WebExtension] Loading extension ${manifest.name}(${extensionID}) with manifest`,
@@ -81,15 +90,15 @@ export async function registerWebExtension(
         const installHandler = EventPools['browser.runtime.onInstall'].get(extensionID)
         if (installHandler) {
             setTimeout(() => {
-                useInternalStorage(extensionID, o => {
+                useInternalStorage(extensionID, (o) => {
                     const handlers = Array.from(installHandler.values()) as callback[]
                     type callback = typeof browser.runtime.onInstalled.addListener extends (...args: infer T) => any
                         ? T[0]
                         : never
                     ;[]
                     if (o.previousVersion)
-                        handlers.forEach(x => x({ previousVersion: o.previousVersion, reason: 'update' }))
-                    else handlers.forEach(x => x({ reason: 'install' }))
+                        handlers.forEach((x) => x({ previousVersion: o.previousVersion, reason: 'update' }))
+                    else handlers.forEach((x) => x({ reason: 'install' }))
                     o.previousVersion = manifest.version
                 })
             }, 2000)
@@ -118,7 +127,7 @@ function getContext(manifest: Manifest) {
 
 function untilDocumentReady() {
     if (document.readyState === 'complete') return Promise.resolve()
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         document.addEventListener('readystatechange', () => document.readyState === 'complete' && resolve())
     })
 }
@@ -185,7 +194,7 @@ async function loadProtocolPageToCurrentPage(
     const parser = new DOMParser()
     const dom = parser.parseFromString(html, 'text/html')
     const scripts = await Promise.all(
-        Array.from(dom.querySelectorAll('script')).map<Promise<[string, 'script' | 'module']>>(async script => {
+        Array.from(dom.querySelectorAll('script')).map<Promise<[string, 'script' | 'module']>>(async (script) => {
             const path = new URL(script.src).pathname
             script.remove()
             return [path, script.type === 'module' ? 'module' : 'script']
@@ -244,12 +253,8 @@ export async function RunInProtocolScope(
     if (!isDebug) throw new TypeError('Run in the wrong scope')
 
     const { src } = parseDebugModeURL(extensionID, manifest)
-    const locationProxy = createLocationProxy(extensionID, manifest, currentPage || src)
     // ? Transform ESM into SystemJS to run in debug mode.
-    const _: WebExtensionManagedRealm =
-        Reflect.get(globalThis, 'env') ||
-        (console.log('Debug by globalThis.env'), new WebExtensionManagedRealm(extensionID, manifest, locationProxy))
-    Object.assign(globalThis, { env: _ })
+    const _ = createManagedECMAScriptRealm(manifest, extensionID, {}, currentPage || src).environment
     if (code.type === 'file') {
         if (esModule) await _.evaluateModule(code.path, currentPage)
         else await _.evaluateScript(code.path, currentPage)
@@ -277,6 +282,7 @@ function createManagedECMAScriptRealm(
         }
         registeredWebExtension.set(extensionID, ext)
     }
+    return registeredWebExtension.get(extensionID)!
 }
 async function loadContentScriptByManifest(manifest: Manifest, extensionID: string, debugModePretendedURL?: string) {
     if (!isDebug && debugModePretendedURL) throw new TypeError('Invalid state')

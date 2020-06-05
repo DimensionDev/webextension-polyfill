@@ -75,7 +75,10 @@ function static_eval_generated() {
         }
         // @ts-ignore
     })(proxy)
+    // Async eval completion
     get(globalThis, Symbol.for('CALLBACK_HERE'))?.(value)
+    // sync eval completion
+    return value
 }
 export function generateEvalString(code: string, globalScopeSymbol: symbol, callbackSymbol: symbol) {
     let x = static_eval_generated.toString()

@@ -13,19 +13,12 @@ console.log('Loading dependencies from external', ts)
 if (isDebug) {
     // leaves your id here, and put your extension to /extension/{id}/
     const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib']
+    // const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib', 'griesruigerhuigreuijghrehgerhgerge']
     // const testIDs = ['griesruigerhuigreuijghrehgerhgerge']
     testIDs.forEach((id) =>
         fetch('/extension/' + id + '/manifest.json')
             .then((x) => x.text())
-            .then((x) => {
-                console.log(`Loading test WebExtension ${id}. Use globalThis.exts to access env`)
-                Object.assign(globalThis, {
-                    registerWebExtension,
-                    WebExtensionManagedRealm,
-                })
-                return registerWebExtension(id, JSON.parse(x))
-            })
-            .then((v) => Object.assign(globalThis, { exts: v })),
+            .then((x) => registerWebExtension(id, JSON.parse(x))),
     )
 } else {
     /** ? Can't delete a global variable */

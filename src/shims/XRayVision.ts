@@ -59,6 +59,9 @@ const PrepareWebAPIs = (() => {
             nextObject: sandboxRoot,
             designatedOwnDescriptors: clonedWebAPIs,
         })
+        // restore the identity continuity
+        sandboxRoot.Object = Object
+        sandboxRoot.Function = Function
     }
 })()
 const { log, warn } = console

@@ -5,6 +5,7 @@ import 'systemjs/dist/s.js'
 import { checkDynamicImport } from './transformers/has-dynamic-import'
 import { FrameworkRPC } from './RPCs/framework-rpc'
 import { generateEvalString } from './static'
+import { isDebug } from './debugger/isDebugMode'
 const SystemJSConstructor: { new (): typeof System } & typeof System = System.constructor as any
 Reflect.deleteProperty(globalThis, 'System')
 export type ModuleKind = 'module' | 'script'
@@ -20,10 +21,16 @@ const canUseEval = (() => {
         return false
     }
 })()
+
+let __debug_reproducible_id = 0
+function randSymbol(key: string) {
+    if (isDebug) return Symbol.for(key + ++__debug_reproducible_id)
+    return Symbol.for(Math.random().toString(16))
+}
 export abstract class SystemJSRealm extends SystemJSConstructor implements Realm {
     //#region Realm
     readonly [Symbol.toStringTag] = 'Realm'
-    readonly #globalScopeSymbol = Symbol.for(Math.random().toString())
+    readonly #globalScopeSymbol = randSymbol('realm')
     readonly #globalThis: typeof globalThis & { browser: typeof browser } = {
         __proto__: null,
         /**
@@ -141,7 +148,7 @@ export abstract class SystemJSRealm extends SystemJSConstructor implements Realm
     #runtimeTransformer = (kind: ModuleKind, fileName: string, prebuilt: boolean) => (src: string) =>
         prebuilt ? src : transformAST(src, kind, fileName)
     #evaluate = (sourceText: string, transformer?: ((sourceText: string) => string)[]): unknown | Promise<unknown> => {
-        const evalCallbackID = Symbol.for(Math.random().toString())
+        const evalCallbackID = randSymbol('callback')
         let result = undefined
         let rejection = (e: Error) => {}
         const evaluation = new Promise<unknown>((resolve, reject) =>
@@ -208,7 +215,7 @@ export abstract class SystemJSRealm extends SystemJSConstructor implements Realm
      * @deprecated This method is not compatible with CSP and might be rejected by the host.
      */
     async evaluateInlineModule(sourceText: string) {
-        const key = `script:` + Math.random().toString()
+        const key = `script:` + randSymbol('script-id').description
         this.#inlineModule.set(key, sourceText)
         try {
             return await this.import(key)

@@ -9,6 +9,23 @@ const log: <T>(rt: T) => (...args: any[]) => Promise<T> = (rt) => async (...args
     console.log('Mocked Host', ...args)
     return rt!
 }
+const myTabID: any = parseInt(new URLSearchParams(location.search).get('id') ?? (~~(Math.random() * 100) as any))
+
+const tabsQuery = new BroadcastChannel('query-tabs')
+tabsQuery.addEventListener('message', (e) => {
+    if (e.origin !== location.origin) console.warn(e.origin, location.origin)
+    if (e.data === 'req') tabsQuery.postMessage({ id: myTabID })
+})
+function queryTabs() {
+    return new Promise<number[]>((resolve) => {
+        const id = new Set<number>()
+        tabsQuery.addEventListener('message', (e) => {
+            if (e.data?.id) id.add(e.data.id)
+        })
+        tabsQuery.postMessage('req')
+        setTimeout(() => resolve([...id]), 300)
+    })
+}
 
 class CrossPageDebugChannel {
     broadcast = new BroadcastChannel('webext-polyfill-debug')
@@ -36,6 +53,7 @@ interface MockedLocalService {
     onMessage: FrameworkMayInvokeMethods['onMessage']
     onCommitted: FrameworkMayInvokeMethods['browser.webNavigation.onCommitted']
 }
+const loadedTab: number[] = []
 if (isDebug) {
     const mockHost = AsyncCall<MockedLocalService>(
         {
@@ -48,9 +66,8 @@ if (isDebug) {
             messageChannel: new CrossPageDebugChannel(),
         },
     )
-    const myTabID = Math.random()
     setTimeout(() => {
-        const obj = parseDebugModeURL('', {} as any)
+        const obj = parseDebugModeURL('', { id: myTabID } as any)
         // webNavigation won't sent holoflows-extension pages.
         if (obj.src.startsWith('holoflows-')) return
         mockHost.onCommitted({ tabId: myTabID, url: obj.src })
@@ -60,7 +77,7 @@ if (isDebug) {
         'URL.revokeObjectURL': log(void 0),
         'browser.downloads.download': log(void 0),
         async sendMessage(e, t, tt, m, mm) {
-            mockHost.onMessage(e, t, m, mm, { id: new URLSearchParams(location.search).get('id')! })
+            mockHost.onMessage(e, t, m, mm, { id: myTabID })
         },
         'browser.storage.local.clear': log(void 0),
         async 'browser.storage.local.get'(extensionID, k) {
@@ -77,14 +94,17 @@ if (isDebug) {
             const param = new URLSearchParams()
             param.set('url', options.url)
             param.set('type', options.url.startsWith('holoflows-extension://') ? 'p' : 'm')
+            const id = ~~(Math.random() * 100)
+            param.set('id', id.toString())
             a.href = '/?' + param
             a.innerText = 'browser.tabs.create: Please click to open it: ' + options.url
             a.target = '_blank'
             a.style.color = 'white'
             document.body.appendChild(a)
-            return { id: Math.random() } as any
+            loadedTab.push(id)
+            return { id } as any
         },
-        'browser.tabs.query': log([]),
+        'browser.tabs.query': () => queryTabs().then((x) => x.map((id) => ({ id } as any))),
         'browser.tabs.remove': log(void 0),
         'browser.tabs.update': log({} as browser.tabs.Tab),
         async fetch(extensionID, r) {

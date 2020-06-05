@@ -17,8 +17,7 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
     const scriptBefore = undefined
     const scriptAfter = [
         thisTransformation,
-        hasDynamicImport ? systemjsNameNoLeakTransformer : undefined!,
-        lastExprValue,
+        ...(hasDynamicImport ? [systemjsNameNoLeakTransformer, lastExprValue] : []),
     ].filter((x) => x)
     const moduleBefore = undefined
     const moduleAfter = [systemjsNameNoLeakTransformer, lastExprValue].filter((x) => x)
