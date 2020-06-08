@@ -11,23 +11,8 @@ const log: <T>(rt: T) => (...args: any[]) => Promise<T> = (rt) => async (...args
 }
 const myTabID: any = parseInt(new URLSearchParams(location.search).get('id') ?? (~~(Math.random() * 100) as any))
 
-const tabsQuery = new BroadcastChannel('query-tabs')
-tabsQuery.addEventListener('message', (e) => {
-    if (e.origin !== location.origin) console.warn(e.origin, location.origin)
-    if (e.data === 'req') tabsQuery.postMessage({ id: myTabID })
-})
-function queryTabs() {
-    return new Promise<number[]>((resolve) => {
-        const id = new Set<number>()
-        tabsQuery.addEventListener('message', (e) => {
-            if (e.data?.id) id.add(e.data.id)
-        })
-        tabsQuery.postMessage('req')
-        setTimeout(() => resolve([...id]), 300)
-    })
-}
-
 class CrossPageDebugChannel {
+    tabsQuery = new BroadcastChannel('query-tabs')
     broadcast = new BroadcastChannel('webext-polyfill-debug')
     constructor() {
         this.broadcast.addEventListener('message', (e) => {
@@ -38,6 +23,20 @@ class CrossPageDebugChannel {
                     f(detail)
                 } catch {}
             }
+        })
+        this.tabsQuery.addEventListener('message', (e) => {
+            if (e.origin !== location.origin) console.warn(e.origin, location.origin)
+            if (e.data === 'req') this.tabsQuery.postMessage({ id: myTabID })
+        })
+    }
+    queryTabs() {
+        return new Promise<number[]>((resolve) => {
+            const id = new Set<number>()
+            this.tabsQuery.addEventListener('message', (e) => {
+                if (e.data?.id) id.add(e.data.id)
+            })
+            this.tabsQuery.postMessage('req')
+            setTimeout(() => resolve([...id]), 300)
         })
     }
     private listener: Array<(data: unknown) => void> = []
@@ -55,6 +54,7 @@ interface MockedLocalService {
 }
 const loadedTab: number[] = []
 if (isDebug) {
+    const crossPage = new CrossPageDebugChannel()
     const mockHost = AsyncCall<MockedLocalService>(
         {
             onMessage: ThisSideImplementation.onMessage,
@@ -63,7 +63,7 @@ if (isDebug) {
         {
             key: 'mock',
             log: false,
-            messageChannel: new CrossPageDebugChannel(),
+            messageChannel: crossPage,
         },
     )
     setTimeout(() => {
@@ -104,7 +104,7 @@ if (isDebug) {
             loadedTab.push(id)
             return { id } as any
         },
-        'browser.tabs.query': () => queryTabs().then((x) => x.map((id) => ({ id } as any))),
+        'browser.tabs.query': () => crossPage.queryTabs().then((x) => x.map((id) => ({ id } as any))),
         'browser.tabs.remove': log(void 0),
         'browser.tabs.update': log({} as browser.tabs.Tab),
         async fetch(extensionID, r) {
