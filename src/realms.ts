@@ -1,7 +1,6 @@
 import Realm from 'realms-shim'
 import { transformAST, scriptTransformCache } from './transformers'
 // See: https://github.com/systemjs/systemjs/issues/2123
-import 'systemjs'
 import 'systemjs/dist/s.js'
 import { checkDynamicImport } from './transformers/has-dynamic-import'
 const SystemJSConstructor: { new (): typeof System } & typeof System = System.constructor as any
