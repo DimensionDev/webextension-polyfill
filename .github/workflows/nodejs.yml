@@ -15,11 +15,12 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 12.x
+      - uses: jgierer12/npm-auth-gpr@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install
         run: yarn install
       - name: Build
         run: yarn build
       - name: Publish to GitHub Package (unstable)
         run: ./scripts/publish-to-github.sh
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
