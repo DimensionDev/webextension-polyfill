@@ -8,7 +8,7 @@
     "web-ext-prebuilts": "./dist/bin/prebuilts.js"
   },
   "scripts": {
-    "build": "tsc && tsc -p tsconfig.esm.json",
+    "build": "tsc",
     "bundle": "rollup -c",
     "prepublishOnly": "npm run bundle && npm run build",
     "serve": "serve .",
