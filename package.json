@@ -3,8 +3,6 @@
   "version": "0.0.3",
   "repository": "https://github.com/DimensionDev/webextension-polyfill",
   "license": "MIT",
-  "main": "./dist/index.js",
-  "module": "./es/index.js",
   "bin": {
     "web-ext-prebuilt": "./dist/bin/prebuilt.js",
     "web-ext-prebuilts": "./dist/bin/prebuilts.js"
