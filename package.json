@@ -1,6 +1,7 @@
 {
   "name": "@dimensiondev/webextension-shim",
-  "version": "0.0.1",
+  "version": "0.0.0-3c45b4d",
+  "repository": "https://github.com/DimensionDev/webextension-polyfill",
   "license": "MIT",
   "main": "index.js",
   "scripts": {
