@@ -21,7 +21,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
-  "exclude": ["./dist", "./es"],
+  "exclude": ["./dist"],
   "ts-node": {
     "compilerOptions": {
       "module": "CommonJS"
