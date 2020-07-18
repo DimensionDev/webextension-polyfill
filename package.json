@@ -1,9 +1,13 @@
 {
-  "name": "webextension-shim",
+  "name": "@dimensiondev/webextension-shim",
   "version": "0.0.1",
-  "private": true,
-  "main": "index.js",
   "license": "MIT",
+  "main": "index.js",
+  "scripts": {
+    "build": "rollup -c",
+    "serve": "serve .",
+    "start": "rollup -c -w"
+  },
   "dependencies": {
     "async-call-rpc": "^1.0.4",
     "systemjs": "^6.3.2",
@@ -17,11 +21,6 @@
     "rollup-plugin-typescript2": "^0.27.1",
     "typescript": "^3.9.3",
     "uglify-es": "^3.3.9"
-  },
-  "scripts": {
-    "start": "rollup -c -w",
-    "build": "rollup -c",
-    "serve": "serve ."
   },
   "peerDependencies": {
     "typescript": "^3.8.3"
