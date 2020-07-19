@@ -1,4 +1,4 @@
 #!/bin/bash
-COMMIT_HSAH=$(git rev-parse --short HEAD)
-npm --no-git-tag-version version "0.0.0-$COMMIT_HSAH"
-npm publish --tag unstable
+VERSION=$(jq -r '.version' package.json)
+npm --no-git-tag-version version "$VERSION-$GITHUB_RUN_NUMBER"
+npm publish
