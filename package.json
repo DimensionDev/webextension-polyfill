@@ -1,9 +1,19 @@
 {
-  "name": "webextension-shim",
-  "version": "0.0.1",
-  "private": true,
-  "main": "index.js",
+  "name": "@dimensiondev/webextension-shim",
+  "version": "0.0.3",
+  "repository": "https://github.com/DimensionDev/webextension-polyfill",
   "license": "MIT",
+  "bin": {
+    "web-ext-prebuilt": "./dist/bin/prebuilt.js",
+    "web-ext-prebuilts": "./dist/bin/prebuilts.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bundle": "rollup -c",
+    "prepublishOnly": "npm run bundle && npm run build",
+    "serve": "serve .",
+    "start": "rollup -c -w"
+  },
   "dependencies": {
     "async-call-rpc": "^1.0.4",
     "systemjs": "^6.3.2",
@@ -17,11 +27,6 @@
     "rollup-plugin-typescript2": "^0.27.1",
     "typescript": "^3.9.3",
     "uglify-es": "^3.3.9"
-  },
-  "scripts": {
-    "start": "rollup -c -w",
-    "build": "rollup -c",
-    "serve": "serve ."
   },
   "peerDependencies": {
     "typescript": "^3.8.3"

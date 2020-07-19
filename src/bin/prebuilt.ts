@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve, basename } from 'path'
 import { transformAST, PrebuiltVersion } from '../transformers'
