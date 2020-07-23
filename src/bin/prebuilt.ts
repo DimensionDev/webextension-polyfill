@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve, basename } from 'path'
-import { transformAST, PrebuiltVersion } from '../transformers'
-import { checkDynamicImport } from '../transformers/has-dynamic-import'
-
+import { PrebuiltVersion } from '../transformers'
+import { prebuiltWorker } from './prebuilt-lib'
 export function exec(sourceMapPathSemi: string, fileName: string) {
     const fileContent = readFileSync(fileName, 'utf-8')
 
@@ -15,17 +14,16 @@ export function exec(sourceMapPathSemi: string, fileName: string) {
 
     const sourceMapPath = 'holoflows-extension://' + sourceMapPathSemi
 
-    writeFileSync(moduleOut, transformAST(fileContent, 'module', sourceMapPath))
-    const hasDynImport = checkDynamicImport(fileContent)
-    const scriptResult = transformAST(fileContent, 'script', sourceMapPath)
-    writeFileSync(scriptOut, (hasDynImport ? 'd' : 's') + scriptResult)
+    writeFileSync(moduleOut, prebuiltWorker(fileContent, 'module', sourceMapPath))
+    writeFileSync(scriptOut, prebuiltWorker(fileContent, 'script', sourceMapPath))
 }
 
 if (process.mainModule === module) {
     const [sourceMapPathSemi, fileName] = process.argv.slice(2)
     if (!fileName)
         throw new Error(
-            'Usage: prebuilt sourceMapPath fileName\ne.g.: prebuilt eofkdgkhfoebecmamljfaepckoecjhib/js/index.js js/index.js',
+            `Usage: prebuilt sourceMapPath fileName
+e.g.: prebuilt eofkdgkhfoebecmamljfaepckoecjhib/js/index.js js/index.js`,
         )
     exec(sourceMapPathSemi, fileName)
 }

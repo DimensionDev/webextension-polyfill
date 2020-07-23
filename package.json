@@ -22,7 +22,9 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^12.0.0",
     "@rollup/plugin-node-resolve": "^8.0.0",
+    "@types/gulp-rename": "^0.0.33",
     "@types/systemjs": "^6.1.0",
+    "@types/vinyl": "^2.0.4",
     "rimraf": "^3.0.2",
     "rollup": "^2.10.9",
     "rollup-plugin-typescript2": "^0.27.1",
@@ -30,6 +32,7 @@
     "uglify-es": "^3.3.9"
   },
   "peerDependencies": {
+    "gulp-rename": "^2.0.0",
     "typescript": "^3.8.3"
   }
 }
