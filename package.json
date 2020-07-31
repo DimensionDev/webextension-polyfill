@@ -1,6 +1,7 @@
 {
   "name": "@dimensiondev/webextension-shim",
   "version": "0.0.3",
+  "description": "This shim will run a compiler in runtime. It is slow when transforming big files. To speed up, prebuilt your JS files so it won't go through the compiler in runtime.",
   "repository": "https://github.com/DimensionDev/webextension-polyfill",
   "license": "MIT",
   "bin": {
