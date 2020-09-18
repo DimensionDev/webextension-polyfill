@@ -22,18 +22,14 @@ export function cloneObjectWithInternalSlot<T extends object>(
     const newProto = prototypeChain.reduceRight((previous, current) => {
         if (cacheMap.has(current)) return cacheMap.get(current)!
         const desc = Object.getOwnPropertyDescriptors(current)
-        const obj = Object.create(
-            previous,
-            PatchThisOfDescriptors(traps.descriptorsModifier?.(current, desc) ?? desc, original),
-        )
+        const nextDesc = PatchThisOfDescriptors(traps.descriptorsModifier?.(current, desc) ?? desc, original)
+        const obj = Object.create(previous, nextDesc)
         cacheMap.set(current, obj)
         return obj
     }, {})
     const next = traps.nextObject || Object.create(null)
-    Object.defineProperties(
-        next,
-        PatchThisOfDescriptors(traps.descriptorsModifier?.(next, ownDescriptor) ?? ownDescriptor, original),
-    )
+    const nextDesc = PatchThisOfDescriptors(traps.descriptorsModifier?.(next, ownDescriptor) ?? ownDescriptor, original)
+    Object.defineProperties(next, nextDesc)
     Object.setPrototypeOf(next, newProto)
     return next
 }

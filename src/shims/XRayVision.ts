@@ -53,7 +53,7 @@ const PrepareWebAPIs = (() => {
         }
         for (const key in clonedWebAPIs)
             if (clonedWebAPIs[key].value === globalThis) clonedWebAPIs[key].value = sandboxRoot
-        if (locationProxy) clonedWebAPIs.location.value = locationProxy
+        if (locationProxy) clonedWebAPIs.location.get = () => locationProxy
         for (const key in clonedWebAPIs) if (key in sandboxRoot) delete clonedWebAPIs[key]
         cloneObjectWithInternalSlot(realWindow, sandboxRoot, {
             nextObject: sandboxRoot,
@@ -90,7 +90,6 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
         this.globalThis.open = openEnhanced(extensionID)
         this.globalThis.close = closeEnhanced(extensionID)
         this.globalThis.Worker = enhancedWorker(extensionID)
-        if (locationProxy) this.globalThis.location = locationProxy
     }
     async fetchPrebuilt(kind: ModuleKind, url: string): Promise<{ content: string; asSystemJS: boolean } | null> {
         const res = await this.fetchSourceText(url + `.prebuilt-${PrebuiltVersion}-${kind}`)
