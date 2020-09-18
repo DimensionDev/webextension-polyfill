@@ -15,195 +15,175 @@ const originalConfirm = window.confirm
  */
 export function BrowserFactory(extensionID: string, manifest: Manifest, proto: typeof Object.prototype): browser {
     if (!extensionID) throw new TypeError()
-    const implementation: Partial<browser> = {
-        downloads: NotImplementedProxy<typeof browser.downloads>({
-            download: binding(
-                extensionID,
-                'browser.downloads.download',
-            )({
-                param(options) {
-                    let { url, filename } = options
-                    if (getIDFromBlobURL(url)) {
-                        url = `holoflows-blob://${extensionID}/${getIDFromBlobURL(url)!}`
-                    }
-                    PartialImplemented(options, 'filename', 'url')
-                    const arg1 = { url, filename: filename || '' }
-                    return [arg1]
-                },
-                returns() {
-                    return 0
-                },
-            }),
-        }),
-        runtime: NotImplementedProxy<typeof browser.runtime>({
-            getURL(path) {
-                return getPrefix(extensionID) + path
+    const implementation = {} as browser
+    implementation.downloads = Implements<typeof browser.downloads>({
+        download: binding(
+            extensionID,
+            'browser.downloads.download',
+        )({
+            param(options) {
+                let { url, filename } = options
+                if (getIDFromBlobURL(url)) {
+                    url = `holoflows-blob://${extensionID}/${getIDFromBlobURL(url)!}`
+                }
+                PartialImplemented(options, 'filename', 'url')
+                const arg1 = { url, filename: filename || '' }
+                return [arg1]
             },
-            getManifest() {
-                return JSON.parse(JSON.stringify(manifest))
-            },
-            onMessage: createEventListener(extensionID, 'browser.runtime.onMessage'),
-            sendMessage: createRuntimeSendMessage(extensionID),
-            onInstalled: createEventListener(extensionID, 'browser.runtime.onInstall'),
-            // TODO: is it?
-            id: extensionID,
-        }),
-        tabs: NotImplementedProxy<typeof browser.tabs>({
-            async executeScript(tabID, details) {
-                PartialImplemented(details, 'code', 'file', 'runAt')
-                await internalRPC.executeContentScript(tabID!, extensionID, manifest, details)
-                return []
-            },
-            create: binding(extensionID, 'browser.tabs.create')(),
-            async remove(tabID) {
-                let t: number[]
-                if (!Array.isArray(tabID)) t = [tabID]
-                else t = tabID
-                await Promise.all(t.map(x => FrameworkRPC['browser.tabs.remove'](extensionID, x)))
-            },
-            query: binding(extensionID, 'browser.tabs.query')(),
-            update: binding(extensionID, 'browser.tabs.update')(),
-            async sendMessage<T = any, U = object>(
-                tabId: number,
-                message: T,
-                options?: { frameId?: number | undefined } | undefined,
-            ): Promise<void | U> {
-                PartialImplemented(options)
-                return sendMessageWithResponse(extensionID, extensionID, tabId, message)
+            returns() {
+                return 0
             },
         }),
-        storage: {
-            local: Implements<typeof browser.storage.local>({
-                clear: binding(extensionID, 'browser.storage.local.clear')(),
-                remove: binding(extensionID, 'browser.storage.local.remove')(),
-                set: binding(extensionID, 'browser.storage.local.set')(),
-                get: binding(
-                    extensionID,
-                    'browser.storage.local.get',
-                )({
-                    /** Host not accepting { a: 1 } as keys */
-                    param(keys) {
-                        if (Array.isArray(keys)) return [keys as string[]]
-                        else if (typeof keys === 'string') return [keys]
-                        else if (typeof keys === 'object') {
-                            if (keys === null) return [null]
-                            return [Object.keys(keys)]
-                        }
-                        return [null]
-                    },
-                    returns(rtn, [key]): object {
-                        if (Array.isArray(key)) return rtn
-                        else if (typeof key === 'object' && key !== null) {
-                            return { ...key, ...rtn }
-                        }
-                        return rtn
-                    },
-                }),
-            }),
-            sync: NotImplementedProxy(),
-            onChanged: NotImplementedProxy(),
+    })
+    implementation.runtime = Implements<typeof browser.runtime>({
+        getURL: (path) => getPrefix(extensionID) + path,
+        getManifest: () => JSON.parse(JSON.stringify(manifest)),
+        onMessage: createEventListener(extensionID, 'browser.runtime.onMessage'),
+        onInstalled: createEventListener(extensionID, 'browser.runtime.onInstall'),
+        sendMessage: createRuntimeSendMessage(extensionID),
+        get id() {
+            return extensionID
         },
-        webNavigation: NotImplementedProxy<typeof browser.webNavigation>({
-            onCommitted: createEventListener(extensionID, 'browser.webNavigation.onCommitted'),
-            onCompleted: createEventListener(extensionID, 'browser.webNavigation.onCompleted'),
-            onDOMContentLoaded: createEventListener(extensionID, 'browser.webNavigation.onDOMContentLoaded'),
+        set id(val) {},
+    })
+    implementation.tabs = Implements<typeof browser.tabs>({
+        async executeScript(tabID, details) {
+            PartialImplemented(details, 'code', 'file', 'runAt')
+            await internalRPC.executeContentScript(tabID!, extensionID, manifest, details)
+            return []
+        },
+        create: binding(extensionID, 'browser.tabs.create')(),
+        async remove(tabID) {
+            let t: number[]
+            if (!Array.isArray(tabID)) t = [tabID]
+            else t = tabID
+            await Promise.all(t.map((x) => FrameworkRPC['browser.tabs.remove'](extensionID, x)))
+        },
+        query: binding(extensionID, 'browser.tabs.query')(),
+        update: binding(extensionID, 'browser.tabs.update')(),
+        async sendMessage<T = any, U = object>(
+            tabId: number,
+            message: T,
+            options?: { frameId?: number | undefined } | undefined,
+        ): Promise<void | U> {
+            PartialImplemented(options)
+            return sendMessageWithResponse(extensionID, extensionID, tabId, message)
+        },
+    })
+    implementation.storage = Implements<typeof browser.storage>({
+        local: Implements<typeof browser.storage.local>({
+            clear: binding(extensionID, 'browser.storage.local.clear')(),
+            remove: binding(extensionID, 'browser.storage.local.remove')(),
+            set: binding(extensionID, 'browser.storage.local.set')(),
+            get: binding(
+                extensionID,
+                'browser.storage.local.get',
+            )({
+                /** Host not accepting { a: 1 } as keys */
+                param(keys) {
+                    if (Array.isArray(keys)) return [keys as string[]]
+                    else if (typeof keys === 'string') return [keys]
+                    else if (typeof keys === 'object') {
+                        if (keys === null) return [null]
+                        return [Object.keys(keys)]
+                    }
+                    return [null]
+                },
+                returns(rtn, [key]): object {
+                    if (Array.isArray(key)) return rtn
+                    else if (typeof key === 'object' && key !== null) {
+                        return { ...key, ...rtn }
+                    }
+                    return rtn
+                },
+            }),
         }),
-        extension: NotImplementedProxy<typeof browser.extension>({
-            getBackgroundPage() {
-                const defaultName = '_generated_background_page.html'
-                const manifestName = manifest.background!.page
-                if (location.pathname === '/' + defaultName || location.pathname === '/' + manifestName) return window
-                return new Proxy(
-                    {
-                        location: new URL(getPrefix(extensionID) + (manifestName || defaultName)) as Partial<Location>,
-                    } as Partial<Window>,
-                    {
-                        get(_: any, key: any) {
-                            if (_[key]) return _[key]
-                            throw new TypeError('Not supported')
-                        },
+    })
+    implementation.webNavigation = Implements<typeof browser.webNavigation>({
+        onCommitted: createEventListener(extensionID, 'browser.webNavigation.onCommitted'),
+        onCompleted: createEventListener(extensionID, 'browser.webNavigation.onCompleted'),
+        onDOMContentLoaded: createEventListener(extensionID, 'browser.webNavigation.onDOMContentLoaded'),
+    })
+    implementation.extension = Implements<typeof browser.extension>({
+        getBackgroundPage() {
+            const defaultName = '_generated_background_page.html'
+            const manifestName = manifest.background!.page
+            if (location.pathname === '/' + defaultName || location.pathname === '/' + manifestName) return window
+            return new Proxy(
+                {
+                    location: new URL(getPrefix(extensionID) + (manifestName || defaultName)) as Partial<Location>,
+                } as Partial<Window>,
+                {
+                    get(_: any, key: any) {
+                        if (_[key]) return _[key]
+                        throw new TypeError('Not supported')
                     },
-                ) as Window
-            },
-        }),
-        permissions: NotImplementedProxy<typeof browser.permissions>({
-            request: async req => {
-                const userAction = originalConfirm(`${manifest.name} is going to request the following permissions:
+                },
+            ) as Window
+        },
+    })
+    implementation.permissions = Implements<typeof browser.permissions>({
+        request: async (req) => {
+            const userAction = originalConfirm(`${manifest.name} is going to request the following permissions:
 ${(req.permissions || []).join('\n')}
 ${(req.origins || []).join('\n')}`)
-                if (userAction) {
-                    useInternalStorage(extensionID, obj => {
-                        const orig = obj.dynamicRequestedPermissions || { origins: [], permissions: [] }
-                        const o = new Set(orig.origins)
-                        const p = new Set(orig.permissions)
-                        ;(req.origins || []).forEach(x => o.add(x))
-                        ;(req.permissions || []).forEach(x => p.add(x))
-                        orig.origins = Array.from(o)
-                        orig.permissions = Array.from(p)
-                        obj.dynamicRequestedPermissions = orig
-                    })
-                }
-                return userAction
-            },
-            contains: async query => {
-                const originsQuery = query.origins || []
-                const permissionsQuery = query.permissions || []
-                const requested = await useInternalStorage(extensionID)
-                const hasOrigins = new Set<string>()
-                const hasPermissions = new Set<string>()
-                if (requested.dynamicRequestedPermissions && requested.dynamicRequestedPermissions.origins) {
-                    requested.dynamicRequestedPermissions.origins.forEach(x => hasOrigins.add(x))
-                }
-                if (requested.dynamicRequestedPermissions && requested.dynamicRequestedPermissions.permissions) {
-                    requested.dynamicRequestedPermissions.permissions.forEach(x => hasPermissions.add(x))
-                }
-                // permissions does not distinguish permission or url
-                ;(manifest.permissions || []).forEach(x => hasPermissions.add(x))
-                ;(manifest.permissions || []).forEach(x => hasOrigins.add(x))
-                if (originsQuery.some(x => !hasOrigins.has(x))) return false
-                if (permissionsQuery.some(x => !hasPermissions.has(x))) return false
-                return true
-            },
-            remove: async () => {
-                console.warn('🤣 why you want to revoke your permissions? Not implemented yet.')
-                return false
-            },
-            getAll: async () => {
-                const all = await useInternalStorage(extensionID)
-                return JSON.parse(JSON.stringify(all.dynamicRequestedPermissions || {}))
-            },
-        }),
-    }
-    const proxy = NotImplementedProxy<browser>(implementation, false)
+            if (userAction) {
+                useInternalStorage(extensionID, (obj) => {
+                    const orig = obj.dynamicRequestedPermissions || { origins: [], permissions: [] }
+                    const o = new Set(orig.origins)
+                    const p = new Set(orig.permissions)
+                    ;(req.origins || []).forEach((x) => o.add(x))
+                    ;(req.permissions || []).forEach((x) => p.add(x))
+                    orig.origins = Array.from(o)
+                    orig.permissions = Array.from(p)
+                    obj.dynamicRequestedPermissions = orig
+                })
+            }
+            return userAction
+        },
+        contains: async (query) => {
+            const originsQuery = query.origins || []
+            const permissionsQuery = query.permissions || []
+            const requested = await useInternalStorage(extensionID)
+            const hasOrigins = new Set<string>()
+            const hasPermissions = new Set<string>()
+            if (requested.dynamicRequestedPermissions && requested.dynamicRequestedPermissions.origins) {
+                requested.dynamicRequestedPermissions.origins.forEach((x) => hasOrigins.add(x))
+            }
+            if (requested.dynamicRequestedPermissions && requested.dynamicRequestedPermissions.permissions) {
+                requested.dynamicRequestedPermissions.permissions.forEach((x) => hasPermissions.add(x))
+            }
+            // permissions does not distinguish permission or url
+            ;(manifest.permissions || []).forEach((x) => hasPermissions.add(x))
+            ;(manifest.permissions || []).forEach((x) => hasOrigins.add(x))
+            if (originsQuery.some((x) => !hasOrigins.has(x))) return false
+            if (permissionsQuery.some((x) => !hasPermissions.has(x))) return false
+            return true
+        },
+        remove: async () => {
+            console.warn('🤣 why you want to revoke your permissions? Not implemented yet.')
+            return false
+        },
+        getAll: async () => {
+            const all = await useInternalStorage(extensionID)
+            return JSON.parse(JSON.stringify(all.dynamicRequestedPermissions || {}))
+        },
+    })
+
     // WebExtension polyfill (moz) will check if the proto is equal to Object.prototype
-    Object.setPrototypeOf(proxy, proto)
-    return proxy
+    Object.setPrototypeOf(implementation, proto)
+    return implementation
 }
 type browser = typeof browser
 
-function Implements<T>(implementation: T) {
-    return implementation
+function Implements<T>(x: Partial<T>): T {
+    return x as any
 }
-function NotImplementedProxy<T = any>(implemented: Partial<T> = {}, final = true): T {
-    return new Proxy(implemented, {
-        get(target: any, key) {
-            if (!target[key]) return final ? NotImplemented : NotImplementedProxy()
-            return target[key]
-        },
-        apply() {
-            return NotImplemented()
-        },
-    })
-}
-function NotImplemented(): any {
-    return function() {
-        throw new Error('Not implemented!')
-    }
-}
+
 function PartialImplemented<T>(obj: T = {} as any, ...keys: (keyof T)[]) {
     const obj2 = { ...obj }
-    keys.forEach(x => delete obj2[x])
-    if (Object.keys(obj2).filter(k => (obj as any)[k] !== undefined || (obj as any)[k] !== null).length)
+    keys.forEach((x) => delete obj2[x])
+    if (Object.keys(obj2).filter((k) => (obj as any)[k] !== undefined || (obj as any)[k] !== null).length)
         console.warn(`Not implemented options`, obj2, `at`, new Error().stack)
 }
 

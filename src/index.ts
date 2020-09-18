@@ -1,5 +1,4 @@
 import { registerWebExtension } from './Extensions'
-import { WebExtensionManagedRealm } from './shims/XRayVision'
 import './debugger/localhost'
 import { isDebug } from './debugger/isDebugMode'
 

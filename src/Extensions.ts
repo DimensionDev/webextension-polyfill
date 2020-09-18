@@ -127,7 +127,7 @@ function getContext(manifest: Manifest) {
 
 function untilDocumentReady() {
     if (document.readyState === 'complete') return Promise.resolve()
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
         document.addEventListener('readystatechange', () => document.readyState === 'complete' && resolve())
     })
 }

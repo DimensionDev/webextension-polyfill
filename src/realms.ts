@@ -80,11 +80,11 @@ export abstract class SystemJSRealm extends SystemJSConstructor implements Realm
         set(globalThis, this.#globalScopeSymbol, this.globalThis)
     }
     /** Fetch the file that the SystemJSRealm requires for module loading */
-    protected abstract async fetchPrebuilt(
+    protected abstract fetchPrebuilt(
         kind: ModuleKind,
         url: string,
     ): Promise<{ content: string; asSystemJS: boolean } | null>
-    protected abstract async fetchSourceText(url: string): Promise<string | null>
+    protected abstract fetchSourceText(url: string): Promise<string | null>
     //#region System
     /** Create import.meta */
     protected createContext(url: string): object {
