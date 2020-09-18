@@ -23,6 +23,7 @@ import { enhancedWorker } from '../hijacks/Worker.prototype.constructor'
 import { getResourceAsync } from '../utils/Resources'
 import { cloneObjectWithInternalSlot } from '../utils/internal-slot'
 import { PrebuiltVersion } from '../transformers'
+import { createChromeFromBrowser } from './chrome'
 /**
  * Apply all WebAPIs to the clean sandbox created by Realm
  */
@@ -80,11 +81,13 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
         log('[WebExtension] Managed Realm created.')
         PrepareWebAPIs(this.globalThis, locationProxy)
         const browser = BrowserFactory(this.extensionID, this.manifest, this.globalThis.Object.prototype)
+        const chrome = createChromeFromBrowser(browser)
         Object.defineProperty(this.globalThis, 'browser', {
             // ? Mozilla's polyfill may overwrite this. Figure this out.
             get: () => browser,
             set: () => false,
         })
+        Object.defineProperty(this.globalThis, 'chrome', { enumerable: true, writable: true, value: chrome })
         this.globalThis.URL = enhanceURL(this.globalThis.URL, extensionID)
         this.globalThis.fetch = createFetch(extensionID)
         this.globalThis.open = openEnhanced(extensionID)

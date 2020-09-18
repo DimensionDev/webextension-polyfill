@@ -11,6 +11,7 @@ import { isDebug, parseDebugModeURL } from './debugger/isDebugMode'
 import { hookedHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
 import { enhancedWorker } from './hijacks/Worker.prototype.constructor'
 import { createLocationProxy } from './hijacks/location'
+import { createChromeFromBrowser } from './shims/chrome'
 
 export type WebExtensionID = string
 export type Manifest = Partial<browser.runtime.Manifest> &
@@ -216,8 +217,10 @@ async function loadProtocolPageToCurrentPage(
 }
 
 function prepareExtensionProtocolEnvironment(extensionID: string, manifest: Manifest) {
+    const browser = BrowserFactory(extensionID, manifest, Object.prototype)
     Object.assign(window, {
-        browser: BrowserFactory(extensionID, manifest, Object.prototype),
+        browser,
+        chrome: createChromeFromBrowser(browser),
         fetch: createFetch(extensionID),
         URL: enhanceURL(URL, extensionID),
         open: openEnhanced(extensionID),
