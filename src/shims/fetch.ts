@@ -1,5 +1,5 @@
 import { FrameworkRPC } from '../RPCs/framework-rpc'
-import { decodeStringOrBlob } from '../utils/StringOrBlob'
+import { decodeStringOrBlob, encodeStringOrBlob } from '../utils/StringOrBlob'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { isDebug } from '../debugger/isDebugMode'
 import { getPrefix } from '../utils/Resources'
@@ -17,7 +17,12 @@ export function createFetch(extensionID: string): typeof fetch {
                 return origFetch(requestInfo, requestInit)
             } else {
                 if (isDebug) return origFetch(requestInfo, requestInit)
-                const result = await FrameworkRPC.fetch(extensionID, { method: request.method, url: url.toJSON() })
+                const { method, body } = request
+                const result = await FrameworkRPC.fetch(extensionID, {
+                    method,
+                    url: url.toJSON(),
+                    body: await reader(body),
+                })
                 const data = decodeStringOrBlob(result.data)
                 if (data === null) throw new Error('')
                 const returnValue = new Response(data, result)
@@ -25,4 +30,21 @@ export function createFetch(extensionID: string): typeof fetch {
             }
         },
     })
+}
+async function reader(body: ReadableStream<Uint8Array> | null) {
+    if (!body) return null
+    const iter = body.getReader()
+    const u: Uint8Array[] = []
+    for await (const i of read(iter)) u.push(i)
+    return encodeStringOrBlob(new Uint8Array(flat_iter(u)))
+}
+function* flat_iter(args: Uint8Array[]) {
+    for (const each of args) yield* each
+}
+async function* read<T>(iter: ReadableStreamDefaultReader<T>) {
+    let result: ReadableStreamReadResult<T> = await iter.read()
+    while (!result.done) {
+        yield result.value
+        result = await iter.read()
+    }
 }

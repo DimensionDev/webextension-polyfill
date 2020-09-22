@@ -169,6 +169,7 @@ export interface FrameworkImplementation {
             /** GET, POST, .... */
             method: string
             url: string
+            body: null | FrameworkStringOrBlob
         },
     ): Promise<{
         /** response code */
