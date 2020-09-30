@@ -34,7 +34,7 @@ export async function getResourceAsync(extensionID: string, resources: Record<st
 
     if (preloaded) return preloaded
 
-    const response = await FrameworkRPC.fetch(extensionID, { method: 'GET', url })
+    const response = await FrameworkRPC.fetch(extensionID, { method: 'GET', url, body: null })
     const result = decodeStringOrBlob(response.data)
     if (result === null) return undefined
     if (typeof result === 'string') return result
