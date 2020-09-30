@@ -1,6 +1,6 @@
-import { FrameworkStringOrBlob } from '../RPCs/framework-rpc'
+import { FrameworkStringOrBinary } from '../RPCs/framework-rpc'
 
-export function decodeStringOrBlob(val: FrameworkStringOrBlob): Blob | string | ArrayBuffer | null {
+export function decodeStringOrBlob(val: FrameworkStringOrBinary): Blob | string | ArrayBuffer | null {
     if (val.type === 'text') return val.content
     if (val.type === 'blob') return new Blob([val.content], { type: val.mimeType })
     if (val.type === 'array buffer') {
@@ -8,7 +8,7 @@ export function decodeStringOrBlob(val: FrameworkStringOrBlob): Blob | string | 
     }
     return null
 }
-export async function encodeStringOrBlob(val: Blob | string | ArrayBuffer): Promise<FrameworkStringOrBlob> {
+export async function encodeStringOrBufferSource(val: Blob | string | BufferSource): Promise<FrameworkStringOrBinary> {
     if (typeof val === 'string') return { type: 'text', content: val }
     if (val instanceof Blob) {
         const buffer = new Uint8Array(await new Response(val).arrayBuffer())
@@ -17,7 +17,11 @@ export async function encodeStringOrBlob(val: Blob | string | ArrayBuffer): Prom
     if (val instanceof ArrayBuffer) {
         return { type: 'array buffer', content: base64EncArr(new Uint8Array(val)) }
     }
-    throw new TypeError('Invalid data')
+    if ('buffer' in val && val.buffer instanceof ArrayBuffer) {
+        return encodeStringOrBufferSource(val)
+    }
+    console.error(val)
+    throw new TypeError('Invalid type')
 }
 
 //#region // ? Code from https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/Base64_encoding_and_decoding#Appendix.3A_Decode_a_Base64_string_to_Uint8Array_or_ArrayBuffer

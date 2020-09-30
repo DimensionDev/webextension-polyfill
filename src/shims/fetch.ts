@@ -1,5 +1,5 @@
 import { FrameworkRPC } from '../RPCs/framework-rpc'
-import { decodeStringOrBlob, encodeStringOrBlob } from '../utils/StringOrBlob'
+import { decodeStringOrBlob, encodeStringOrBufferSource } from '../utils/StringOrBlob'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { isDebug } from '../debugger/isDebugMode'
 import { getPrefix } from '../utils/Resources'
@@ -36,7 +36,7 @@ async function reader(body: ReadableStream<Uint8Array> | null) {
     const iter = body.getReader()
     const u: Uint8Array[] = []
     for await (const i of read(iter)) u.push(i)
-    return encodeStringOrBlob(new Uint8Array(flat_iter(u)))
+    return encodeStringOrBufferSource(new Uint8Array(flat_iter(u)))
 }
 function* flat_iter(args: Uint8Array[]) {
     for (const each of args) yield* each

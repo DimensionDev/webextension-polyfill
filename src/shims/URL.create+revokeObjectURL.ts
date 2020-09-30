@@ -1,5 +1,5 @@
 import { FrameworkRPC } from '../RPCs/framework-rpc'
-import { encodeStringOrBlob } from '../utils/StringOrBlob'
+import { encodeStringOrBufferSource } from '../utils/StringOrBlob'
 
 const { createObjectURL, revokeObjectURL } = URL
 export function getIDFromBlobURL(x: string) {
@@ -32,7 +32,9 @@ function createObjectURLEnhanced(extensionID: string): (object: any) => string {
         const url = createObjectURL(obj)
         const resourceID = getIDFromBlobURL(url)!
         if (obj instanceof Blob) {
-            encodeStringOrBlob(obj).then(blob => FrameworkRPC['URL.createObjectURL'](extensionID, resourceID, blob))
+            encodeStringOrBufferSource(obj).then((blob) =>
+                FrameworkRPC['URL.createObjectURL'](extensionID, resourceID, blob),
+            )
         }
         return url
     }
@@ -45,7 +47,7 @@ function blobToBase64(blob: Blob) {
             const [header, base64] = (reader.result as string).split(',')
             resolve(base64)
         })
-        reader.addEventListener('error', e => reject(e))
+        reader.addEventListener('error', (e) => reject(e))
         reader.readAsDataURL(blob)
     })
 }
