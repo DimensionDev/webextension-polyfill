@@ -18,7 +18,7 @@ export async function encodeStringOrBufferSource(val: Blob | string | BufferSour
         return { type: 'array buffer', content: base64EncArr(new Uint8Array(val)) }
     }
     if ('buffer' in val && val.buffer instanceof ArrayBuffer) {
-        return encodeStringOrBufferSource(val)
+        return encodeStringOrBufferSource(val.buffer)
     }
     console.error(val)
     throw new TypeError('Invalid type')
