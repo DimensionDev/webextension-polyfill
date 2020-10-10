@@ -6,7 +6,7 @@ import { lastExprValue } from './last-expr-value'
 
 export const scriptTransformCache = new Map<string, string>()
 const moduleTransformCache = new Map<string, string>()
-export const PrebuiltVersion = 1
+export const PrebuiltVersion = 2
 /**
  * For scripts, we treat it as a module with no static import/export.
  */

@@ -95,11 +95,11 @@ export class WebExtensionManagedRealm extends SystemJSRealm {
         this.globalThis.Worker = enhancedWorker(extensionID)
     }
     async fetchPrebuilt(kind: ModuleKind, url: string): Promise<{ content: string; asSystemJS: boolean } | null> {
-        const res = await this.fetchSourceText(url + `.prebuilt-${PrebuiltVersion}-${kind}`)
-        if (!res) return null
-        if (kind === 'module') return { content: res, asSystemJS: true }
-        const [flag] = res
-        return { content: res.slice(1), asSystemJS: flag === 'd' }
+        const content = await this.fetchSourceText(url + `.prebuilt-${PrebuiltVersion}-${kind}`)
+        if (!content) return null
+        if (kind === 'module') return { content: content, asSystemJS: true }
+        const flag = content.slice(0, 4)
+        return { content, asSystemJS: flag === '//d\n' }
     }
     protected async fetchSourceText(url: string) {
         const res = await getResourceAsync(this.extensionID, {}, url)
