@@ -124,9 +124,10 @@ export function BrowserFactory(extensionID: string, manifest: Manifest, proto: t
     })
     implementation.permissions = Implements<typeof browser.permissions>({
         request: async (req) => {
-            const userAction = originalConfirm(`${manifest.name} is going to request the following permissions:
-${(req.permissions || []).join('\n')}
-${(req.origins || []).join('\n')}`)
+            const userAction = true
+            //             originalConfirm(`${manifest.name} is going to request the following permissions:
+            // ${(req.permissions || []).join('\n')}
+            // ${(req.origins || []).join('\n')}`)
             if (userAction) {
                 useInternalStorage(extensionID, (obj) => {
                     const orig = obj.dynamicRequestedPermissions || { origins: [], permissions: [] }
