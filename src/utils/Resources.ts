@@ -1,6 +1,6 @@
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { FrameworkRPC } from '../RPCs/framework-rpc'
-import { decodeStringOrBlob } from './StringOrBlob'
+import { decodeStringOrBufferSource } from './StringOrBlob'
 
 const normalized = Symbol('Normalized resources')
 function normalizePath(path: string, extensionID: string) {
@@ -35,7 +35,7 @@ export async function getResourceAsync(extensionID: string, resources: Record<st
     if (preloaded) return preloaded
 
     const response = await FrameworkRPC.fetch(extensionID, { method: 'GET', url, body: null })
-    const result = decodeStringOrBlob(response.data)
+    const result = decodeStringOrBufferSource(response.data)
     if (result === null) return undefined
     if (typeof result === 'string') return result
     console.error('Not supported type for getResourceAsync')

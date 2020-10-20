@@ -1,5 +1,5 @@
 import { FrameworkRPC } from '../RPCs/framework-rpc'
-import { decodeStringOrBlob, encodeStringOrBufferSource } from '../utils/StringOrBlob'
+import { decodeStringOrBufferSource, encodeStringOrBufferSource } from '../utils/StringOrBlob'
 import { debugModeURLRewrite } from '../debugger/url-rewrite'
 import { isDebug } from '../debugger/isDebugMode'
 import { getPrefix } from '../utils/Resources'
@@ -23,7 +23,7 @@ export function createFetch(extensionID: string): typeof fetch {
                     url: url.toJSON(),
                     body: await reader(body),
                 })
-                const data = decodeStringOrBlob(result.data)
+                const data = decodeStringOrBufferSource(result.data)
                 if (data === null) throw new Error('')
                 const returnValue = new Response(data, result)
                 return returnValue
