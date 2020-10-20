@@ -1,6 +1,7 @@
 import typescript from 'rollup-plugin-typescript2'
 import nodeResolve from '@rollup/plugin-node-resolve'
 import commonjs from '@rollup/plugin-commonjs'
+import nodeBuiltIn from 'rollup-plugin-node-polyfills'
 import * as Rollup from 'rollup'
 
 import fs from 'fs'
@@ -37,7 +38,7 @@ const config = {
     plugins: [
         nodeResolve({
             browser: true,
-            preferBuiltins: false,
+            preferBuiltins: true,
             mainFields: ['module', 'main'],
         }),
         typescript({ tsconfigOverride: { compilerOptions: { module: 'ESNext' } } }),
@@ -47,6 +48,7 @@ const config = {
             ignore: ignore,
             sourceMap: true,
         }),
+        nodeBuiltIn({}),
     ],
 }
 

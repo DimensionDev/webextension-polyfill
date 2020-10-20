@@ -39,15 +39,3 @@ function createObjectURLEnhanced(extensionID: string): (object: any) => string {
         return url
     }
 }
-
-function blobToBase64(blob: Blob) {
-    return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.addEventListener('loadend', () => {
-            const [header, base64] = (reader.result as string).split(',')
-            resolve(base64)
-        })
-        reader.addEventListener('error', (e) => reject(e))
-        reader.readAsDataURL(blob)
-    })
-}
