@@ -3,12 +3,13 @@
  */
 /// <reference path="../../node_modules/web-ext-types/global/index.d.ts" />
 import { AsyncCall } from 'async-call-rpc'
-import { dispatchNormalEvent, TwoWayMessagePromiseResolver } from '../utils/LocalMessages'
+import { dispatchNormalEvent, dispatchPortEvent, TwoWayMessagePromiseResolver } from '../utils/LocalMessages'
 import { InternalMessage, onNormalMessage } from '../shims/browser.message'
 import { isDebug } from '../debugger/isDebugMode'
 import { reservedID } from '../internal'
 import { internalRPCChannel } from './internal-rpc'
 import { SamePageDebugChannel } from './SamePageDebugChannel'
+import { createPort } from '../shims/browser.port'
 
 /** Define Blob type in communicate with remote */
 export type FrameworkStringOrBinary =
@@ -240,6 +241,7 @@ class iOSWebkitChannel {
             window.webkit.messageHandlers[key].postMessage(data)
     }
 }
+/** Don't call this directly! Call FrameworkRPC.* instead */
 export const ThisSideImplementation: FrameworkMayInvokeMethods = {
     // todo: check dispatch target's manifest
     'browser.webNavigation.onCommitted': dispatchNormalEvent.bind(null, 'browser.webNavigation.onCommitted', '*'),
@@ -252,9 +254,8 @@ export const ThisSideImplementation: FrameworkMayInvokeMethods = {
     async onMessage(extensionID, toExtensionID, messageID, message, sender) {
         switch (message.type) {
             case 'internal-rpc':
-                internalRPCChannel.onReceiveMessage('', message.message)
-                break
-            case 'message':
+                return internalRPCChannel.onReceiveMessage('', message.message)
+            case 'message': {
                 // ? this is a response to the message
                 if (TwoWayMessagePromiseResolver.has(messageID) && message.response) {
                     const [resolve, reject] = TwoWayMessagePromiseResolver.get(messageID)!
@@ -266,7 +267,8 @@ export const ThisSideImplementation: FrameworkMayInvokeMethods = {
                     // ? drop the message
                 }
                 break
-            case 'onWebNavigationChanged':
+            }
+            case 'onWebNavigationChanged': {
                 if (!sender.tab || sender.tab.id === undefined) break
                 const param = {
                     tabId: sender.tab.id,
@@ -287,6 +289,17 @@ export const ThisSideImplementation: FrameworkMayInvokeMethods = {
                         break
                 }
                 break
+            }
+            case 'onPortCreate':
+                return dispatchNormalEvent<[browser.runtime.Port]>(
+                    'browser.runtime.onConnect',
+                    extensionID,
+                    createPort(extensionID, message.portID, sender, undefined, { name: message.name }),
+                )
+            case 'onPortMessage':
+                return dispatchPortEvent('message', message.portID, message.message)
+            case 'onPortDisconnect':
+                return dispatchPortEvent('disconnected', message.portID, undefined)
             default:
                 break
         }

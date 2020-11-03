@@ -5,7 +5,7 @@ import { createFetch } from './shims/fetch'
 import { enhanceURL } from './shims/URL.create+revokeObjectURL'
 import { openEnhanced, closeEnhanced } from './shims/window.open+close'
 import { getResourceAsync, getPrefix } from './utils/Resources'
-import { EventPools } from './utils/LocalMessages'
+import { dispatchNormalEvent } from './utils/LocalMessages'
 import { reservedID, useInternalStorage } from './internal'
 import { isDebug, parseDebugModeURL } from './debugger/isDebugMode'
 import { hookedHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
@@ -88,22 +88,26 @@ export async function registerWebExtension(
         console.error(e)
     }
     if (environment === Environment.backgroundScript) {
-        const installHandler = EventPools['browser.runtime.onInstall'].get(extensionID)
-        if (installHandler) {
-            setTimeout(() => {
-                useInternalStorage(extensionID, (o) => {
-                    const handlers = Array.from(installHandler.values()) as callback[]
-                    type callback = typeof browser.runtime.onInstalled.addListener extends (...args: infer T) => any
-                        ? T[0]
-                        : never
-                    ;[]
-                    if (o.previousVersion)
-                        handlers.forEach((x) => x({ previousVersion: o.previousVersion, reason: 'update' }))
-                    else handlers.forEach((x) => x({ reason: 'install' }))
-                    o.previousVersion = manifest.version
-                })
-            }, 2000)
-        }
+        setTimeout(() => {
+            useInternalStorage(extensionID, (o) => {
+                type Arg0 = typeof browser.runtime.onInstalled.addListener extends (args: infer T) => any
+                    ? // @ts-expect-error too lazy to check T extends Function
+                      Parameters<T>
+                    : never
+                ;[]
+                if (o.previousVersion) {
+                    dispatchNormalEvent<Arg0>('browser.runtime.onInstall', extensionID, {
+                        previousVersion: o.previousVersion,
+                        reason: 'update',
+                    })
+                } else {
+                    dispatchNormalEvent<Arg0>('browser.runtime.onInstall', extensionID, {
+                        reason: 'install',
+                    })
+                }
+                o.previousVersion = manifest.version
+            })
+        }, 2000)
     }
     return registeredWebExtension
 }

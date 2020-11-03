@@ -6,8 +6,8 @@ import { getIDFromBlobURL } from './URL.create+revokeObjectURL'
 import { useInternalStorage } from '../internal'
 import { internalRPC } from '../RPCs/internal-rpc'
 import { getPrefix } from '../utils/Resources'
+import { createPort } from './browser.port'
 
-const originalConfirm = window.confirm
 /**
  * Create a new `browser` object.
  * @param extensionID - Extension ID
@@ -40,6 +40,8 @@ export function BrowserFactory(extensionID: string, manifest: Manifest, proto: t
         getManifest: () => JSON.parse(JSON.stringify(manifest)),
         onMessage: createEventListener(extensionID, 'browser.runtime.onMessage'),
         onInstalled: createEventListener(extensionID, 'browser.runtime.onInstall'),
+        connect: (...args: any) => createPort(extensionID, undefined, undefined, ...args),
+        onConnect: createEventListener(extensionID, 'browser.runtime.onConnect'),
         sendMessage: createRuntimeSendMessage(extensionID),
         get id() {
             return extensionID

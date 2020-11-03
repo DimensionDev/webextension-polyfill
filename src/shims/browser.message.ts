@@ -7,7 +7,7 @@ import { deepClone } from '../utils/deepClone'
  * @param extensionID
  */
 export function createRuntimeSendMessage(extensionID: string) {
-    return function() {
+    return function () {
         let toExtensionID: string, message: unknown
         if (arguments.length === 1) {
             toExtensionID = extensionID
@@ -33,7 +33,7 @@ export function sendMessageWithResponse<U>(
             type: 'message',
             data: message,
             response: false,
-        }).catch(e => {
+        }).catch((e) => {
             reject(e)
             TwoWayMessagePromiseResolver.delete(messageID)
         })
@@ -94,10 +94,10 @@ export type InternalMessage =
           status: 'onCommitted' | 'onDOMContentLoaded' | 'onCompleted' | 'onHistoryStateUpdated'
           location: string
       }
-    | {
-          type: 'internal-rpc'
-          message: any
-      }
+    | { type: 'internal-rpc'; message: any }
+    | { type: 'onPortCreate'; portID: string; name: string }
+    | { type: 'onPortMessage'; portID: string; message: any }
+    | { type: 'onPortDisconnect'; portID: string }
 
 function sendResponseDeprecated(): any {
     throw new Error(
