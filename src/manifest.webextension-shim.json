@@ -1,0 +1,24 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "type": "object",
+    "description": "This file is used by webextension-shim. It should be placed at the root of the extension and named as \"manifest.webextension-shim.json\".",
+    "properties": {
+        "external-uri": {
+            "type": "array",
+            "description": "external uri with Perl Compatible Regular Expressions (PCRE).",
+            "examples": ["^https?://example\\.com/", "^some-protocol:"],
+            "items": {
+                "type": "string"
+            }
+        },
+        "user-scripts": {
+            "type": "array",
+            "description": "A list of User script paths.",
+            "examples": ["js/user-script.js"],
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "additionalProperties": true
+}
