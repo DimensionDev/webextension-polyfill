@@ -11,6 +11,14 @@
                 "type": "string"
             }
         },
+        "universal-link": {
+            "type": "array",
+            "description": "universal link with Perl Compatible Regular Expressions (PCRE).",
+            "examples": ["^https?://example\\.com/", "^some-protocol:"],
+            "items": {
+                "type": "string"
+            }
+        },
         "user-scripts": {
             "type": "array",
             "description": "A list of User script paths.",
