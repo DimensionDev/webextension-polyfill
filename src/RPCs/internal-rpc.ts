@@ -6,7 +6,7 @@
  */
 import { isDebug } from '../debugger/isDebugMode'
 import { reservedID } from '../internal'
-import { AsyncCall } from 'async-call-rpc'
+import { AsyncCall, EventBasedChannel } from 'async-call-rpc'
 import { Manifest, registeredWebExtension, loadContentScript, registerWebExtension } from '../Extensions'
 import { FrameworkRPC } from './framework-rpc'
 
@@ -32,19 +32,20 @@ interface InternalRPCMethods {
         },
     ): Promise<unknown>
 }
-export const internalRPCChannel = new (class WebExtensionInternalChannel {
-    public listener: Array<(data: unknown) => void> = []
-    on(_: string, cb: (data: any) => void): void {
-        this.listener.push(cb)
+export const internalRPCChannel = new (class WebExtensionInternalChannel implements EventBasedChannel {
+    public listener: Set<(data: unknown) => void> = new Set()
+    on(cb: (data: any) => void) {
+        this.listener.add(cb)
+        return () => this.listener.delete(cb)
     }
-    onReceiveMessage(key: string, data: JSONRPCRequest): void {
+    onReceiveMessage(data: JSONRPCRequest): void {
         for (const f of this.listener) {
             try {
                 f(data)
             } catch {}
         }
     }
-    emit(key: string, data: JSONRPCRequest): void {
+    send(data: JSONRPCRequest): void {
         if (isDebug) {
             console.log('send', data)
         }
@@ -83,7 +84,8 @@ const internalRPCLocalImplementation: InternalRPCMethods = {
 }
 export const internalRPC = AsyncCall<InternalRPCMethods>(internalRPCLocalImplementation, {
     log: false,
-    messageChannel: internalRPCChannel,
+    channel: internalRPCChannel,
+    strict: false,
 })
 interface JSONRPCRequest {
     jsonrpc: '2.0'

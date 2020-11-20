@@ -1,23 +1,23 @@
-export class SamePageDebugChannel {
+import type { EventBasedChannel } from 'async-call-rpc'
+
+export class SamePageDebugChannel extends EventTarget implements EventBasedChannel {
     static server = document.createElement('a')
     static client = document.createElement('a')
     constructor(private actor: 'server' | 'client') {
-        SamePageDebugChannel[actor].addEventListener('targetEventChannel', e => {
-            const detail = (e as CustomEvent).detail
-            for (const f of this.listener) {
-                try {
-                    f(detail)
-                } catch {}
-            }
+        super()
+        SamePageDebugChannel[actor].addEventListener('targetEventChannel', (e) => {
+            const detail = (e as MessageEvent).data
+            this.dispatchEvent(new MessageEvent('message', { data: detail }))
         })
     }
-    private listener: Array<(data: unknown) => void> = []
-    on(_: string, cb: (data: any) => void): void {
-        this.listener.push(cb)
+    on(cb: (data: any) => void) {
+        const f = (e: any) => cb(e.data)
+        this.addEventListener('message', f)
+        return () => this.removeEventListener('message', f)
     }
-    emit(_: string, data: any): void {
+    send(data: any): void {
         SamePageDebugChannel[this.actor === 'client' ? 'server' : 'client'].dispatchEvent(
-            new CustomEvent('targetEventChannel', { detail: data }),
+            new MessageEvent('targetEventChannel', { data }),
         )
     }
 }

@@ -1,8 +1,9 @@
-import { _generateRandomID } from 'async-call-rpc'
 import { FrameworkRPC } from '../RPCs/framework-rpc'
 import { deepClone } from '../utils/deepClone'
 import { clearPortListener, createPortListener } from '../utils/LocalMessages'
-
+function _generateRandomID() {
+    return Math.random().toString(16).slice(3)
+}
 type ConnectionInfo = {
     name?: string
     includeTlsChannelId?: boolean

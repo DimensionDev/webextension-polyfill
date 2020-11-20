@@ -59,10 +59,10 @@
   resolved "https://registry.yarnpkg.com/@types/systemjs/-/systemjs-6.1.0.tgz#eb92e3181391b6f49b8310077fe65bfa3db9392a"
   integrity sha512-akhlviqwowzRNiz3ooAbkjvyMO8cikBqap9z/0yfvMAb6vIsp91Rfox67qtgIhZosWP01MVSTwsgSFYWo4SWQA==
 
-async-call-rpc@^1.0.4:
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/async-call-rpc/-/async-call-rpc-1.0.4.tgz#ded3ef0fac75d0ae90e0ac574adda1ffae4a5cc9"
-  integrity sha512-dsLSfuF+n1GmgsL5Y+uGCkd+/wYZtHObKPxUncEoJ05bb1Lk3wUlU4ppTXL5sBsRuIXPEUxEdb6w86d0u59udg==
+async-call-rpc@^4.2.1:
+  version "4.2.1"
+  resolved "https://registry.yarnpkg.com/async-call-rpc/-/async-call-rpc-4.2.1.tgz#e8d62dd1a8677764d405650fa3b5f4ccc15869d6"
+  integrity sha512-MRtUVp1eFKRLLPE+frvTUXnhcDnTM1altJg0dcSnlJ9AaodvZOv6b9/+kE8wGNlT33uRn0fYXZODY1XmZZQ6IQ==
 
 balanced-match@^1.0.0:
   version "1.0.0"

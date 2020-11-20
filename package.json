@@ -16,7 +16,7 @@
     "start": "rollup -c -w"
   },
   "dependencies": {
-    "async-call-rpc": "^1.0.4",
+    "async-call-rpc": "^4.2.1",
     "systemjs": "^6.3.2",
     "web-ext-types": "^3.2.1"
   },

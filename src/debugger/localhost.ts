@@ -1,4 +1,4 @@
-import { AsyncCall } from 'async-call-rpc'
+import { AsyncCall, EventBasedChannel } from 'async-call-rpc'
 import { FrameworkMayInvokeMethods, ThisSideImplementation, FrameworkImplementation } from '../RPCs/framework-rpc'
 import { SamePageDebugChannel } from '../RPCs/SamePageDebugChannel'
 import { useInternalStorage } from '../internal'
@@ -11,18 +11,15 @@ const log: <T>(rt: T) => (...args: any[]) => Promise<T> = (rt) => async (...args
 }
 const myTabID: any = parseInt(new URLSearchParams(location.search).get('id') ?? (~~(Math.random() * 100) as any))
 
-class CrossPageDebugChannel {
+class CrossPageDebugChannel extends EventTarget implements EventBasedChannel {
     tabsQuery = new BroadcastChannel('query-tabs')
     broadcast = new BroadcastChannel('webext-polyfill-debug')
     constructor() {
+        super()
         this.broadcast.addEventListener('message', (e) => {
             if (e.origin !== location.origin) console.warn(e.origin, location.origin)
             const detail = e.data
-            for (const f of this.listener) {
-                try {
-                    f(detail)
-                } catch {}
-            }
+            this.dispatchEvent(new MessageEvent('message', { data: detail }))
         })
         this.tabsQuery.addEventListener('message', (e) => {
             if (e.origin !== location.origin) console.warn(e.origin, location.origin)
@@ -39,11 +36,12 @@ class CrossPageDebugChannel {
             setTimeout(() => resolve([...id]), 300)
         })
     }
-    private listener: Array<(data: unknown) => void> = []
-    on(_: string, cb: (data: any) => void): void {
-        this.listener.push(cb)
+    on(cb: (data: any) => void) {
+        const f = (e: any) => cb(e.data)
+        this.addEventListener('message', f)
+        return () => this.removeEventListener('message', f)
     }
-    emit(_: string, data: any): void {
+    send(data: any): void {
         this.broadcast.postMessage(data)
     }
 }
@@ -61,9 +59,9 @@ if (isDebug) {
             onCommitted: ThisSideImplementation['browser.webNavigation.onCommitted'],
         } as MockedLocalService,
         {
-            key: 'mock',
             log: false,
-            messageChannel: crossPage,
+            channel: crossPage,
+            strict: false,
         },
     )
     setTimeout(() => {
@@ -129,8 +127,8 @@ if (isDebug) {
         },
     }
     AsyncCall(host, {
-        key: '',
         log: false,
-        messageChannel: new SamePageDebugChannel('server'),
+        channel: new SamePageDebugChannel('server'),
+        strict: false,
     })
 }

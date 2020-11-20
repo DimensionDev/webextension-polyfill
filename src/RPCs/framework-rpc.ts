@@ -2,7 +2,7 @@
  * how webextension-shim communicate with native code.
  */
 /// <reference path="../../node_modules/web-ext-types/global/index.d.ts" />
-import { AsyncCall } from 'async-call-rpc'
+import { AsyncCall, EventBasedChannel } from 'async-call-rpc'
 import { dispatchNormalEvent, dispatchPortEvent, TwoWayMessagePromiseResolver } from '../utils/LocalMessages'
 import { InternalMessage, onNormalMessage } from '../shims/browser.message'
 import { isDebug } from '../debugger/isDebugMode'
@@ -218,7 +218,7 @@ export interface FrameworkMayInvokeMethods {
 }
 
 const key = 'holoflowsjsonrpc'
-class iOSWebkitChannel {
+class iOSWebkitChannel implements EventBasedChannel {
     constructor() {
         document.addEventListener(key, (e) => {
             const detail = (e as CustomEvent<any>).detail
@@ -229,11 +229,12 @@ class iOSWebkitChannel {
             }
         })
     }
-    private listener: Array<(data: unknown) => void> = []
-    on(_: string, cb: (data: any) => void): void {
-        this.listener.push(cb)
+    private listener: Set<(data: unknown) => void> = new Set()
+    on(cb: (data: any) => void) {
+        this.listener.add(cb)
+        return () => this.listener.delete(cb)
     }
-    emit(_: string, data: any): void {
+    send(data: any): void {
         if (isDebug) {
             console.log('send', data)
         }
@@ -254,7 +255,7 @@ export const ThisSideImplementation: FrameworkMayInvokeMethods = {
     async onMessage(extensionID, toExtensionID, messageID, message, sender) {
         switch (message.type) {
             case 'internal-rpc':
-                return internalRPCChannel.onReceiveMessage('', message.message)
+                return internalRPCChannel.onReceiveMessage(message.message)
             case 'message': {
                 // ? this is a response to the message
                 if (TwoWayMessagePromiseResolver.has(messageID) && message.response) {
@@ -307,9 +308,9 @@ export const ThisSideImplementation: FrameworkMayInvokeMethods = {
 }
 
 export const FrameworkRPC = AsyncCall<FrameworkImplementation>(ThisSideImplementation as any, {
-    key: '',
     log: false,
-    messageChannel: isDebug ? new SamePageDebugChannel('client') : new iOSWebkitChannel(),
+    channel: isDebug ? new SamePageDebugChannel('client') : new iOSWebkitChannel(),
+    strict: false,
 })
 
 if (location.protocol !== 'holoflows-extension') {
