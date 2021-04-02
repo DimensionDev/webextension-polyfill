@@ -1,4 +1,5 @@
-import ts, { SourceFile, Statement } from 'typescript'
+import * as ts from 'typescript'
+import type { SourceFile, Statement } from 'typescript'
 /**
  * Transform any `this` to `(x =>
     typeof x === 'undefined'
@@ -71,9 +72,9 @@ export function thisTransformation(context: ts.TransformationContext) {
                 [ts.createThis()],
             )
         }
-        return ts.visitEachChild(node, child => visit(child), context)
+        return ts.visitEachChild(node, (child) => visit(child), context)
     }
-    return (node => {
+    return ((node) => {
         return visit(node)
     }) as (node: SourceFile) => SourceFile
 }

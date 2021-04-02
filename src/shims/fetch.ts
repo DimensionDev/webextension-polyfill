@@ -42,7 +42,7 @@ function* flat_iter(args: Uint8Array[]) {
     for (const each of args) yield* each
 }
 async function* read<T>(iter: ReadableStreamDefaultReader<T>) {
-    let result: ReadableStreamReadResult<T> = await iter.read()
+    let result: ReadableStreamDefaultReadResult<T> = await iter.read()
     while (!result.done) {
         yield result.value
         result = await iter.read()

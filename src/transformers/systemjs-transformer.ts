@@ -1,20 +1,21 @@
-import ts, { Statement, NodeArray, SourceFile, CallExpression } from 'typescript'
+import * as ts from 'typescript'
+import type { Statement, NodeArray, SourceFile, CallExpression } from 'typescript'
 export function systemjsNameNoLeakTransformer(context: ts.TransformationContext) {
     let touched = false
     let systemJSCall: CallExpression
     function visit(node: ts.Node): ts.Node {
         if (touched) return node
         if (ts.isSourceFile(node)) {
-            systemJSCall = node.statements.map(getSystemJSRegisterCallArguments).filter(x => x)[0]! as CallExpression
+            systemJSCall = node.statements.map(getSystemJSRegisterCallArguments).filter((x) => x)[0]! as CallExpression
             if (!systemJSCall) throw new TypeError('Invalid transform')
             return ts.updateSourceFileNode(node, [createFunction(node.statements.map(visit) as any)])
         } else if (node === systemJSCall && ts.isCallExpression(node)) {
             touched = true
             return ts.updateCall(node, ts.createIdentifier('arguments[0].register'), void 0, node.arguments)
         }
-        return ts.visitEachChild(node, child => visit(child), context)
+        return ts.visitEachChild(node, (child) => visit(child), context)
     }
-    return (node => {
+    return ((node) => {
         const r = visit(node)
         if (!touched) throw new TypeError('Invalid transform')
         return r

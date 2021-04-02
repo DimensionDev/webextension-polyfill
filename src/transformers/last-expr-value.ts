@@ -1,4 +1,4 @@
-import ts, { SourceFile } from 'typescript'
+import * as ts from 'typescript'
 /**
  * Transform any code to "return" it's last expression value
  * @param context

@@ -4,7 +4,7 @@ import { isDebug } from './debugger/isDebugMode'
 
 // Note: We actually load it as a extern dependency.
 // So we remove them after we got it.
-import ts from 'typescript'
+import * as ts from 'typescript'
 console.log('Loading dependencies from external', ts)
 
 // ## Inject here

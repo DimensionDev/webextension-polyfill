@@ -1,4 +1,5 @@
-import ts, { TransformationContext, SourceFile } from 'typescript'
+import type { TransformationContext, SourceFile } from 'typescript'
+import * as ts from 'typescript'
 const cache = new Map<string, boolean>()
 export function checkDynamicImport(source: string): boolean {
     if (cache.has(source)) return cache.get(source)!

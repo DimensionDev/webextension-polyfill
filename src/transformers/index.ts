@@ -1,4 +1,4 @@
-import ts from 'typescript'
+import { transpileModule, ScriptTarget, ModuleKind } from 'typescript'
 import { thisTransformation } from './this-transformer'
 import { systemjsNameNoLeakTransformer } from './systemjs-transformer'
 import { checkDynamicImport } from './has-dynamic-import'
@@ -28,7 +28,7 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
         return { fileName: filename, sourceRoot }
     }
     const { fileName, sourceRoot } = getSourcePath()
-    const out = ts.transpileModule(src, {
+    const out = transpileModule(src, {
         transformers: {
             before: kind === 'script' ? scriptBefore : moduleBefore,
             after: kind === 'script' ? scriptAfter : moduleAfter,
@@ -36,10 +36,10 @@ export function transformAST(src: string, kind: 'script' | 'module', path: strin
         reportDiagnostics: true,
         compilerOptions: {
             // ? we're assuming the developer has ran the transformer so we are not going to run any downgrade for them
-            target: ts.ScriptTarget.ESNext,
+            target: ScriptTarget.ESNext,
             // ? Also use System in script type therefore the dynamic import will work
             // ? If no need for module, keep it ESNext (and throw by browser)
-            module: hasDynamicImport || kind === 'module' ? ts.ModuleKind.System : ts.ModuleKind.ESNext,
+            module: hasDynamicImport || kind === 'module' ? ModuleKind.System : ModuleKind.ESNext,
             // ? A comment in React dev will make a false positive on realms checker
             removeComments: true,
             sourceMap: false,
