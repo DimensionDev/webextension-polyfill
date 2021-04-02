@@ -59,26 +59,31 @@ export function onNormalMessage(
     for (const fn of fns) {
         try {
             // ? dispatch message
-            const result = fn(deepClone(message), deepClone(sender), sendResponseDeprecated)
+            const result = fn(deepClone(message), deepClone(sender), sendResponse as any)
             if (result === undefined) {
                 // ? do nothing
             } else if (typeof result === 'boolean') {
-                // ! deprecated path !
+                // ! do what ? this is the deprecated path
             } else if (typeof result === 'object' && typeof result.then === 'function') {
                 // ? response the answer
                 result.then((data: unknown) => {
-                    if (data === undefined || responseSend) return
-                    responseSend = true
-                    FrameworkRPC.sendMessage(toExtensionID, extensionID, sender.tab!.id!, messageID, {
-                        data,
-                        response: true,
-                        type: 'message',
-                    })
+                    if (data === undefined) return
+                    sendResponse(data)
                 })
             }
         } catch (e) {
             console.error(e)
         }
+    }
+    function sendResponse(data: unknown) {
+        if (responseSend) return false
+        responseSend = true
+        FrameworkRPC.sendMessage(toExtensionID, extensionID, sender.tab!.id!, messageID, {
+            data,
+            response: true,
+            type: 'message',
+        })
+        return true
     }
 }
 export type InternalMessage =
@@ -98,12 +103,3 @@ export type InternalMessage =
     | { type: 'onPortCreate'; portID: string; name: string }
     | { type: 'onPortMessage'; portID: string; message: any }
     | { type: 'onPortDisconnect'; portID: string }
-
-function sendResponseDeprecated(): any {
-    throw new Error(
-        'Returning a Promise is the preferred way' +
-            ' to send a reply from an onMessage/onMessageExternal listener, ' +
-            'as the sendResponse will be removed from the specs ' +
-            '(See https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/onMessage)',
-    )
-}
