@@ -10,6 +10,7 @@ export function createFetch(extensionID: string): typeof fetch {
         async apply(origFetch, thisArg, [requestInfo, requestInit]: Parameters<typeof fetch>) {
             const request = new Request(requestInfo, requestInit)
             const url = new URL(request.url)
+            const headers = Object.fromEntries(request.headers.entries())
             // Debug mode
             if (isDebug && (url.origin === location.origin || url.protocol === 'holoflows-extension:')) {
                 return origFetch(debugModeURLRewrite(extensionID, request.url), requestInit)
@@ -22,6 +23,7 @@ export function createFetch(extensionID: string): typeof fetch {
                     method,
                     url: url.toJSON(),
                     body: await reader(body),
+                    headers,
                 })
                 const data = decodeStringOrBufferSource(result.data)
                 if (data === null) throw new Error('')

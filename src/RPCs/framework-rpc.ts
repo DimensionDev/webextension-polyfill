@@ -170,6 +170,20 @@ export interface FrameworkImplementation {
             /** GET, POST, .... */
             method: string
             url: string
+            /**
+             * The native side MUST implement the Forbidden Header Name specification.
+             *
+             * The list can be find in:
+             * https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name
+             *
+             * The Forbidden Header Names should be matched case insensitively.
+             *
+             * The Forbidden Header Names must be ignored (instead not fail the request).
+             *
+             * Specification:
+             * https://fetch.spec.whatwg.org/#terminology-headers
+             */
+            headers: Record<string, string>
             body: null | FrameworkStringOrBinary
         },
     ): Promise<{
