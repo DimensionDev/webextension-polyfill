@@ -8,7 +8,7 @@ import { getResourceAsync, getPrefix } from './utils/Resources'
 import { dispatchNormalEvent } from './utils/LocalMessages'
 import { reservedID, useInternalStorage } from './internal'
 import { isDebug, parseDebugModeURL } from './debugger/isDebugMode'
-import { hookedHTMLScriptElementSrc } from './hijacks/HTMLScript.prototype.src'
+import { hookedHTMLScriptElementSrc, originalScriptSrcDesc } from './hijacks/HTMLScript.prototype.src'
 import { enhancedWorker } from './hijacks/Worker.prototype.constructor'
 import { createLocationProxy } from './hijacks/location'
 import { createChromeFromBrowser } from './shims/chrome'
@@ -251,7 +251,7 @@ export async function RunInProtocolScope(
     if (location.protocol === 'holoflows-extension:') {
         const script = document.createElement('script')
         script.type = esModule ? 'module' : 'text/javascript'
-        if (code.type === 'file') script.src = code.path
+        if (code.type === 'file') originalScriptSrcDesc.set!.call(script, code.path)
         else script.innerHTML = code.source
         script.defer = true
         document.body.appendChild(script)

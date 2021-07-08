@@ -1,7 +1,8 @@
 import { RunInProtocolScope, Manifest } from '../Extensions'
 
+export const originalScriptSrcDesc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!
 export function hookedHTMLScriptElementSrc(extensionID: string, manifest: Manifest, currentPage: string) {
-    const src = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')!
+    const src = originalScriptSrcDesc
     Object.defineProperty(HTMLScriptElement.prototype, 'src', {
         get() {
             return src.get!.call(this)
