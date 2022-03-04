@@ -11,9 +11,7 @@ console.log('Loading dependencies from external', ts)
 
 if (isDebug) {
     // leaves your id here, and put your extension to /extension/{id}/
-    // const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib']
-    // const testIDs = ['eofkdgkhfoebecmamljfaepckoecjhib', 'griesruigerhuigreuijghrehgerhgerge']
-    const testIDs = ['griesruigerhuigreuijghrehgerhgerge']
+    const testIDs = ['test']
     testIDs.forEach((id) =>
         fetch('/extension/' + id + '/manifest.json')
             .then((x) => x.text())

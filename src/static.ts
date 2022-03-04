@@ -36,6 +36,7 @@ function static_eval_generated() {
     return value
 }
 export function generateEvalString(code: string, globalScopeSymbol: symbol, callbackSymbol: symbol) {
+    debugger
     let x = static_eval_generated.toString()
     x = replace(x, 'if (arguments[0])', 'with (arguments[0])')
     x = replace(x, 'GLOBAL_SCOPE', globalScopeSymbol.description!)

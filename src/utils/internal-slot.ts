@@ -34,6 +34,19 @@ export function cloneObjectWithInternalSlot<T extends object>(
     return next
 }
 
+const toStringWeakMap = new WeakMap<Function, string>()
+Object.defineProperties(toStringWeakMap, {
+    get: { value: toStringWeakMap.get },
+    set: { value: toStringWeakMap.set },
+    has: { value: toStringWeakMap.has },
+})
+Function.prototype.toString = new Proxy(Function.prototype.toString, {
+    apply(target, thisArg, args) {
+        if (toStringWeakMap.has(thisArg)) return toStringWeakMap.get(thisArg)
+        return Reflect.apply(target, thisArg, args)
+    }
+})
+
 /**
  * Recursively get the prototype chain of an Object
  * @param o Object
@@ -67,8 +80,7 @@ function PatchThisOfDescriptorToNative(descriptor: PropertyDescriptor, native: o
             },
         }[value.name]
         descriptor.value = f
-        // Hmm give it a better view.
-        f.toString = ((f: string) => () => `function ${f}() { [native code] }`)(value.name)
+        toStringWeakMap.set(f, value.toString())
         delete nextDescriptor.arguments
         delete nextDescriptor.caller
         delete nextDescriptor.callee
