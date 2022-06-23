@@ -3,6 +3,7 @@ function static_eval_generated() {
     const value = (function () {
         if (arguments[0]) {
             return function () {
+                'use strict'
                 // prettier-ignore
                 const { browser, Infinity, NaN, undefined, isFinite, isNaN, parseFloat, parseInt, decodeURI, decodeURIComponent, encodeURI, encodeURIComponent, Array, ArrayBuffer, Boolean, DataView, EvalError, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Map, Number, Object, RangeError, ReferenceError, Set, String, Symbol, SyntaxError, TypeError, Uint8Array, Uint8ClampedArray, Uint16Array, Uint32Array, URIError,WeakMap, WeakSet, JSON, Math, Reflect, escape, unescape, top, window, self } = globalThis
                 throw ''
