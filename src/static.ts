@@ -3,7 +3,7 @@ function static_eval_generated() {
     const value = (function () {
         if (arguments[0]) {
             return function () {
-                'use strict'
+                console.log('use strict')
                 // prettier-ignore
                 const { browser, Infinity, NaN, undefined, isFinite, isNaN, parseFloat, parseInt, decodeURI, decodeURIComponent, encodeURI, encodeURIComponent, Array, ArrayBuffer, Boolean, DataView, EvalError, Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Map, Number, Object, RangeError, ReferenceError, Set, String, Symbol, SyntaxError, TypeError, Uint8Array, Uint8ClampedArray, Uint16Array, Uint32Array, URIError,WeakMap, WeakSet, JSON, Math, Reflect, escape, unescape, top, window, self } = globalThis
                 throw ''
@@ -42,6 +42,7 @@ export function generateEvalString(code: string, globalScopeSymbol: symbol, call
     x = replace(x, 'if (arguments[0])', 'with (arguments[0])')
     x = replace(x, 'GLOBAL_SCOPE', globalScopeSymbol.description!)
     x = replace(x, 'CALLBACK_HERE', callbackSymbol.description!)
+    x = replace(x, `console.log('use strict')`, `'use strict';`)
     x = replace(x, `throw ''`, code + '\n') + ';' + static_eval_generated.name.toString() + '()'
     return x
 }
